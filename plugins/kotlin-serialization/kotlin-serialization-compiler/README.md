@@ -17,10 +17,6 @@ Make sure you have latest dev version of Kotlin plugin installed.
 Run `./gradlew :kotlinx-serialization-compiler-plugin:dist`.
 In IDEA, open `Settings - Plugins - Install plugin from disk...` and choose `$kotlin_root/dist/artifacts/Serialization/lib/kotlinx-serialization-compiler-plugin.jar`
 
-### From within IDE (for development):
-
-Run `./gradlew runIde` You'll get a fresh copy of IDEA with Kotlin and Kotlin-serialization plugins built from sources.
-
 ## Building gradle plugin
 
 Run `./gradlew :kotlinx-gradle-serialization-plugin:install`
