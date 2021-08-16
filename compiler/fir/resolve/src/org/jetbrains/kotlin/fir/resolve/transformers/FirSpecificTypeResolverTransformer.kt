@@ -26,9 +26,9 @@ class FirSpecificTypeResolverTransformer(
     var areBareTypesAllowed: Boolean = false
 
     @OptIn(PrivateForInline::class)
-    inline fun <R> withAllowedBareTypes(block: () -> R): R {
+    inline fun <R> withBareTypes(allowed: Boolean = true, block: () -> R): R {
         val oldValue = areBareTypesAllowed
-        areBareTypesAllowed = true
+        areBareTypesAllowed = allowed
         return try {
             block()
         } finally {
@@ -68,7 +68,11 @@ class FirSpecificTypeResolverTransformer(
     @OptIn(PrivateForInline::class)
     override fun transformTypeRef(typeRef: FirTypeRef, data: ScopeClassDeclaration): FirResolvedTypeRef {
         session.lookupTracker?.recordTypeLookup(typeRef, data.scope.scopeOwnerLookupNames, currentFile?.source)
-        typeRef.transformChildren(this, data)
+
+        withBareTypes(false) {
+            typeRef.transformChildren(this, data)
+        }
+
         return transformType(typeRef, typeResolver.resolveType(typeRef, data, areBareTypesAllowed, isOperandOfIsOperator))
     }
 
