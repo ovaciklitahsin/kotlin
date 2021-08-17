@@ -146,7 +146,7 @@ interface ConeUnmatchedTypeArgumentsError : ConeDiagnosticWithSingleCandidate {
 
 class ConeWrongNumberOfTypeArgumentsError(
     override val desiredCount: Int,
-    override val candidateSymbol: FirRegularClassSymbol,
+    override val candidateSymbol: FirClassLikeSymbol<*>,
     source: FirSourceElement
 ) : ConeDiagnosticWithSource(source), ConeUnmatchedTypeArgumentsError {
     override val reason: String get() = "Wrong number of type arguments"
@@ -160,7 +160,7 @@ class ConeNoTypeArgumentsOnRhsError(
 }
 
 class ConeOuterClassArgumentsRequired(
-    val symbol: FirRegularClassSymbol,
+    val symbol: FirClassLikeSymbol<*>,
 ) : ConeDiagnostic {
     override val reason: String = "Type arguments should be specified for an outer class"
 }
