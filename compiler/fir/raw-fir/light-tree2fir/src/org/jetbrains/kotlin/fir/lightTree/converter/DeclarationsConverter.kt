@@ -446,9 +446,7 @@ class DeclarationsConverter(
                     annotations += modifiers.annotations
                     typeParameters += firTypeParameters
 
-                    context.applyToActualCapturedTypeParameters(true) {
-                        typeParameters += buildOuterClassTypeParameterRef { symbol = it }
-                    }
+                    context.appendOuterTypeParameters(true, typeParameters)
 
                     val selfType = classNode.toDelegatedSelfType(this)
                     registerSelfType(selfType)
@@ -583,9 +581,7 @@ class DeclarationsConverter(
                     classKind = ClassKind.OBJECT
                     scopeProvider = baseScopeProvider
                     symbol = FirAnonymousObjectSymbol()
-                    context.applyToActualCapturedTypeParameters(false) {
-                        typeParameters += buildOuterClassTypeParameterRef { this.symbol = it }
-                    }
+                    context.appendOuterTypeParameters(false, typeParameters)
                     val delegatedSelfType = objectLiteral.toDelegatedSelfType(this)
                     registerSelfType(delegatedSelfType)
 
