@@ -149,6 +149,7 @@ class ResolvedLambdaAtom(
     override val atom: LambdaKotlinCallArgument,
     val isSuspend: Boolean,
     val receiver: UnwrappedType?,
+    val contextReceivers: List<UnwrappedType>,
     val parameters: List<UnwrappedType>,
     val returnType: UnwrappedType,
     val typeVariableForLambdaReturnType: TypeVariableForLambdaReturnType?,
