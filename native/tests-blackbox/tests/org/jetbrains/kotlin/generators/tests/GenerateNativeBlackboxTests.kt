@@ -11,11 +11,13 @@ import org.jetbrains.kotlin.test.generators.generateTestGroupSuiteWithJUnit5
 fun main() {
     System.setProperty("java.awt.headless", "true")
 
-    generateTestGroupSuiteWithJUnit5 {
-        cleanTestGroup("native/tests-blackbox/tests-gen", "native/tests-blackbox/testData") {
-            testClass<AbstractNativeBlackBoxTest> {
-                model("samples")
-                model("samples2")
+    runAndLogDuration("Generating Kotlin/Native blackbox tests") {
+        generateTestGroupSuiteWithJUnit5 {
+            cleanTestGroup("native/tests-blackbox/tests-gen", "native/tests-blackbox/testData") {
+                testClass<AbstractNativeBlackBoxTest> {
+                    model("samples")
+                    model("samples2")
+                }
             }
         }
     }

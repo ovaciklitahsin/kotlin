@@ -11,32 +11,36 @@ package org.jetbrains.kotlin.generators.tests
 fun main() {
     System.setProperty("java.awt.headless", "true")
 
-    generateExtNativeBlackboxTestData(
-        testDataSource = "compiler/testData",
-        testDataDestination = "native/tests-blackbox/ext-testData"
-    ) {
-        include("codegen/box")
-        include("codegen/boxInline")
+    runAndLogDuration("Generating test data for external Kotlin/Native blackbox tests") {
+        generateExtNativeBlackboxTestData(
+            testDataSource = "compiler/testData",
+            testDataDestination = "native/tests-blackbox/ext-testData"
+        ) {
+            include("codegen/box")
+            include("codegen/boxInline")
 
-        exclude("codegen/box/compileKotlinAgainstKotlin/specialBridgesInDependencies.kt")             // KT-42723
-        exclude("codegen/box/collections/kt41123.kt")                                                 // KT-42723
-        exclude("codegen/box/multiplatform/multiModule/expectActualTypealiasLink.kt")                 // KT-40137
-        exclude("codegen/box/multiplatform/multiModule/expectActualMemberLink.kt")                    // KT-33091
-        exclude("codegen/box/multiplatform/multiModule/expectActualLink.kt")                          // KT-41901
-        exclude("codegen/box/coroutines/multiModule/")                                                // KT-40121
-        exclude("codegen/box/compileKotlinAgainstKotlin/clashingFakeOverrideSignatures.kt")           // KT-42020
-        exclude("codegen/box/callableReference/genericConstructorReference.kt")                       // ???
-        exclude("codegen/boxInline/multiplatform/defaultArguments/receiversAndParametersInLambda.kt") // KT-36880
+            exclude("codegen/box/compileKotlinAgainstKotlin/specialBridgesInDependencies.kt")             // KT-42723
+            exclude("codegen/box/collections/kt41123.kt")                                                 // KT-42723
+            exclude("codegen/box/multiplatform/multiModule/expectActualTypealiasLink.kt")                 // KT-40137
+            exclude("codegen/box/multiplatform/multiModule/expectActualMemberLink.kt")                    // KT-33091
+            exclude("codegen/box/multiplatform/multiModule/expectActualLink.kt")                          // KT-41901
+            exclude("codegen/box/coroutines/multiModule/")                                                // KT-40121
+            exclude("codegen/box/compileKotlinAgainstKotlin/clashingFakeOverrideSignatures.kt")           // KT-42020
+            exclude("codegen/box/callableReference/genericConstructorReference.kt")                       // ???
+            exclude("codegen/boxInline/multiplatform/defaultArguments/receiversAndParametersInLambda.kt") // KT-36880
+        }
     }
 
-//    generateTestGroupSuiteWithJUnit5 {
-//        cleanTestGroup(
-//            testsRoot = "native/tests-blackbox/ext-tests-gen",
-//            testDataRoot = "compiler/testData"
-//        ) {
-//            testClass<AbstractExtNativeBlackBoxTest> {
-//                model("codegen/box")
-//                model("codegen/boxInline")
+//    runAndLogDuration("Generating external Kotlin/Native blackbox tests") {
+//        generateTestGroupSuiteWithJUnit5 {
+//            cleanTestGroup(
+//                testsRoot = "native/tests-blackbox/ext-tests-gen",
+//                testDataRoot = "compiler/testData"
+//            ) {
+//                testClass<AbstractExtNativeBlackBoxTest> {
+//                    model("codegen/box")
+//                    model("codegen/boxInline")
+//                }
 //            }
 //        }
 //    }
