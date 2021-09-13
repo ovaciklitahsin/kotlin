@@ -241,7 +241,7 @@ private class ExtTestDataFile(
     /** Adds a wrapper to run it as Kotlin test. */
     private fun generateTestLauncher(entryPointFunctionFQN: String) {
         structure.addFileToMainModule(
-            fileName = "__launcher.kt",
+            fileName = "__launcher__.kt",
             text = """
                 package ${settings.effectivePackageName}
         
