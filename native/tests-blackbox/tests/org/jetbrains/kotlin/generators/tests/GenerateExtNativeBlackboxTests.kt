@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.generators.tests
 
-//import org.jetbrains.kotlin.konan.blackboxtest.AbstractExtNativeBlackBoxTest
-//import org.jetbrains.kotlin.test.generators.generateTestGroupSuiteWithJUnit5
+import org.jetbrains.kotlin.konan.blackboxtest.AbstractNativeBlackBoxTest
+import org.jetbrains.kotlin.test.generators.generateTestGroupSuiteWithJUnit5
 
 fun main() {
     System.setProperty("java.awt.headless", "true")
@@ -31,17 +31,17 @@ fun main() {
         }
     }
 
-//    runAndLogDuration("Generating external Kotlin/Native blackbox tests") {
-//        generateTestGroupSuiteWithJUnit5 {
-//            cleanTestGroup(
-//                testsRoot = "native/tests-blackbox/ext-tests-gen",
-//                testDataRoot = "compiler/testData"
-//            ) {
-//                testClass<AbstractExtNativeBlackBoxTest> {
-//                    model("codegen/box")
-//                    model("codegen/boxInline")
-//                }
-//            }
-//        }
-//    }
+    runAndLogDuration("Generating external Kotlin/Native blackbox tests") {
+        generateTestGroupSuiteWithJUnit5 {
+            cleanTestGroup(
+                testsRoot = "native/tests-blackbox/ext-tests-gen",
+                testDataRoot = "native/tests-blackbox/ext-testData"
+            ) {
+                testClass<AbstractNativeBlackBoxTest>(suiteTestClassName = "NativeExtBlackBoxTestGenerated") {
+                    model("codegen/box")
+                    model("codegen/boxInline")
+                }
+            }
+        }
+    }
 }

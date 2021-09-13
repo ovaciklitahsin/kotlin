@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.konan.blackboxtest.TestDirectives.OUTPUT_DATA_FILE
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.StringDirective
-import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertNotNull
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
@@ -41,6 +40,13 @@ internal object TestDirectives : SimpleDirectivesContainer() {
         description = """
             Specify custom program entry point. The default entry point is `main` function in the root package.
             Note that this directive makes sense only in combination with // KIND: STANDALONE_NO_TR
+        """.trimIndent()
+    )
+
+    val MODULE by stringDirective(
+        """
+            Usage: // MODULE: name[(dependencies)[(friends)]]
+            Describes one module.
         """.trimIndent()
     )
 
@@ -119,16 +125,41 @@ internal fun parseEntryPoint(registeredDirectives: RegisteredDirectives, locatio
     return entryPoint
 }
 
+internal data class TestModuleInfo(val name: String, val dependencies: Set<String>, val friends: Set<String>) {
+    companion object {
+        private val TEST_MODULE_REGEX = Regex("^([a-zA-Z0-9_]+)(\\(([a-zA-Z0-9_,]*)\\)(\\(([a-zA-Z0-9_,]*)\\))?)?$")
+
+        fun parse(value: String): TestModuleInfo? {
+            val match = TEST_MODULE_REGEX.matchEntire(value) ?: return null
+            return TestModuleInfo(
+                name = match.groupValues[1],
+                dependencies = match.groupValues[3].split(',').toSet(),
+                friends = match.groupValues[5].split(',').toSet()
+            )
+        }
+    }
+}
+
+internal fun parseModuleInfo(parsedDirective: RegisteredDirectivesParser.ParsedDirective, location: Location): TestModuleInfo {
+    return parsedDirective.values.singleOrNull()?.toString()?.let(TestModuleInfo.Companion::parse)
+        ?: fail {
+            """
+                $location: Invalid contents of ${parsedDirective.directive} directive: ${parsedDirective.values}
+                ${parsedDirective.directive.description}
+            """.trimIndent()
+        }
+}
+
 internal fun parseFileName(parsedDirective: RegisteredDirectivesParser.ParsedDirective, location: Location): String {
     val fileName = parsedDirective.values.singleOrNull()?.toString()
-    assertNotNull(fileName) {
-        """
-            $location: Exactly one file name expected in ${parsedDirective.directive} directive: ${parsedDirective.values}
-            ${parsedDirective.directive.description}
-        """.trimIndent()
-    }
+        ?: fail {
+            """
+                $location: Exactly one file name expected in ${parsedDirective.directive} directive: ${parsedDirective.values}
+                ${parsedDirective.directive.description}
+            """.trimIndent()
+        }
 
-    assertTrue(fileName!!.endsWith(".kt") && fileName.length > 3 && '/' !in fileName && '\\' !in fileName) {
+    assertTrue(fileName.endsWith(".kt") && fileName.length > 3 && '/' !in fileName && '\\' !in fileName) {
         "$location: Invalid file name in ${parsedDirective.directive} directive: $fileName"
     }
 

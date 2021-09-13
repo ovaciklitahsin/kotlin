@@ -123,6 +123,10 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
                         val newFileName = parseFileName(parsedDirective, location)
                         finishTestFile(newFileName, lineNumber)
                     }
+                    TestDirectives.MODULE -> {
+                        val moduleInfo = parseModuleInfo(parsedDirective, location)
+                        print(moduleInfo)
+                    }
                     else -> directivesParser.addParsedDirective(parsedDirective)
                 }
                 currentTestFileContents.appendLine()
