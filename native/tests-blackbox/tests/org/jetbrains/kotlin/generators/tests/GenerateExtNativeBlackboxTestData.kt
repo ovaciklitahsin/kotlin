@@ -289,11 +289,11 @@ private class ExtTestDataFile(
         private val ENTRY_POINT_FUNCTION_REGEX = Regex("(?m)^fun\\s+(box)\\s*\\(\\s*\\)")
 
         private const val THREAD_LOCAL_ANNOTATION_PLUS_SPACE = "@kotlin.native.ThreadLocal "
-
-        private fun String.isKotlinPackageName() = this == "kotlin" || startsWith("kotlin.")
-        private fun String.isKotlinImportQualifier() = startsWith("kotlin.")
     }
 }
+
+private fun String.isKotlinPackageName() = this == "kotlin" || startsWith("kotlin.")
+private fun String.isKotlinImportQualifier() = startsWith("kotlin.")
 
 private class ExtTestDataFileSettings(
     val languageSettings: Set<String>,
@@ -364,7 +364,11 @@ private class ExtTestDataFileStructure(testDataFileText: String) {
     fun generateText(): String {
         checkModulesConsistency()
 
+        val isStandaloneTest = files.any { it.packageName?.isKotlinPackageName() == true }
+
         return buildString {
+            if (isStandaloneTest) appendLine("// KIND: STANDALONE")
+
             modules.entries.sortedBy { it.key }.forEach { (_, module) ->
                 // MODULE line:
                 append("// MODULE: ${module.name}")
