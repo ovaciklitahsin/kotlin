@@ -38,8 +38,7 @@ fun main() {
                 testDataRoot = "native/tests-blackbox/ext-testData"
             ) {
                 testClass<AbstractNativeBlackBoxTest>(suiteTestClassName = "NativeExtBlackBoxTestGenerated") {
-                    model("codegen/box")
-                    model("codegen/boxInline")
+                    model("codegen")
                 }
             }
         }
