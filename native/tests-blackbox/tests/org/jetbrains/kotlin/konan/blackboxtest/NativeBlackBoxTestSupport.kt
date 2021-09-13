@@ -29,13 +29,13 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
                 val testRoots = computeTestRoots()
 
                 val testSourcesDir = globalEnvironment.baseBuildDir
-                    .resolve("own-test-sources")
+                    .resolve("blackbox-test-sources")
                     .resolve(sanitizedName).apply {
                         makeEmptyDirectory() // Clean-up the directory with all potentially stale generated sources.
                     }
 
                 val testBinariesDir = globalEnvironment.baseBuildDir
-                    .resolve("own-test-binaries")
+                    .resolve("blackbox-test-binaries")
                     .resolve(globalEnvironment.target.name)
                     .resolve(sanitizedName).apply {
                         makeEmptyDirectory() // Clean-up the directory with all potentially stale executables.

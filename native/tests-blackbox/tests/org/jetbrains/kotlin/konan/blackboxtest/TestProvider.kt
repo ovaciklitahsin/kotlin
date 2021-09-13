@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.konan.blackboxtest
 
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
-import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
 import java.io.File
@@ -75,11 +74,11 @@ internal fun createBlackBoxTestProvider(environment: TestEnvironment): TestProvi
 
 private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironment): TestCase.Simple {
     val testDataFileDir = testDataFile.parentFile
+    val generatedSourcesDir = environment.testSourcesDir
+        .resolve(testDataFileDir.relativeTo(environment.testRoots.baseDir))
+        .resolve(testDataFile.nameWithoutExtension)
 
-    val relativeTestDir = testDataFileDir.resolve(testDataFile.nameWithoutExtension).relativeTo(environment.testRoots.baseDir)
-    val effectivePackageName = relativeTestDir.toPath().joinToString(".")
-
-    val generatedSourcesDir = environment.testSourcesDir.resolve(relativeTestDir)
+    val effectivePackageName = computePackageName(testDataDir = environment.testRoots.baseDir, testDataFile = testDataFile)
 
     val testFiles = mutableListOf<TestFile>()
 
@@ -201,7 +200,7 @@ private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, 
                     && existingPackageName[packageName.length] == '.')
         ) {
             val location = Location(testDataFile, existingPackageDeclarationLineNumber)
-            "$location: Invalid package name declaration found: $existingPackageDeclarationLine\nExpected: $packageName"
+            "$location: Invalid package name declaration found: $existingPackageDeclarationLine\nExpected: package $packageName"
 
         }
         testFile

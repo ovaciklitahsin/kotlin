@@ -56,7 +56,7 @@ internal fun computePackageName(testDataDir: File, testDataFile: File): PackageN
         .resolve(testDataFile.nameWithoutExtension)
         .toPath()
         .map(Path::name)
-        .joinToString(".") { packagePart -> if (packagePart in KEYWORDS) packagePart + "_" else packagePart }
+        .joinToString(".") { packagePart -> if (packagePart in KEYWORDS) "_${packagePart}_" else packagePart }
 }
 
 internal fun getSanitizedFileName(fileName: String): String =
