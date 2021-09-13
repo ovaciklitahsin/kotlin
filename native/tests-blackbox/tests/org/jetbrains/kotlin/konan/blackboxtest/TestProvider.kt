@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.konan.blackboxtest
 
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
@@ -193,9 +194,15 @@ private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, 
 
     return if (existingPackageDeclarationLine != null) {
         val existingPackageName = existingPackageDeclarationLine.substringAfter("package ").trimStart()
-        assertEquals(packageName, existingPackageName) { // TODO could it be just a subpackage?
+        assertTrue(
+            existingPackageName == packageName
+                    || (existingPackageName.length > packageName.length
+                    && existingPackageName.startsWith(packageName)
+                    && existingPackageName[packageName.length] == '.')
+        ) {
             val location = Location(testDataFile, existingPackageDeclarationLineNumber)
             "$location: Invalid package name declaration found: $existingPackageDeclarationLine\nExpected: $packageName"
+
         }
         testFile
     } else
