@@ -91,7 +91,7 @@ private class ExtTestDataFile(
             .orEmpty(),
         experimentalSettings = structure.directives.listValues(USE_EXPERIMENTAL_DIRECTIVE)?.toSet().orEmpty(),
         expectActualLinker = EXPECT_ACTUAL_LINKER_DIRECTIVE in structure.directives,
-        effectivePackageName = computePackageName(baseDir = testDataSourceDir, file = testDataFile)
+        effectivePackageName = computePackageName(testDataDir = testDataSourceDir, testDataFile = testDataFile)
     )
 
     private fun shouldBeGenerated(): Boolean =

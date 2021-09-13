@@ -5,10 +5,13 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.renderer.KeywordStringsGenerated.KEYWORDS
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
 import java.nio.charset.Charset
+import java.nio.file.Path
+import kotlin.io.path.name
 
 internal fun File.deleteRecursivelyWithLogging() {
     if (exists()) {
@@ -46,10 +49,14 @@ internal fun File.writeFileWithLogging(text: String, charset: Charset) {
 
 internal fun getAbsoluteFile(localPath: String): File = File(KtTestUtil.getHomeDirectory()).resolve(localPath).canonicalFile
 
-internal fun computePackageName(baseDir: File, file: File): PackageName {
-    assertTrue(file.startsWith(baseDir)) { "The file is outside of the directory.\nFile: $file\nDirectory: $baseDir" }
-
-    return file.parentFile.relativeTo(baseDir).resolve(file.nameWithoutExtension).toPath().joinToString(".")
+internal fun computePackageName(testDataDir: File, testDataFile: File): PackageName {
+    assertTrue(testDataFile.startsWith(testDataDir)) { "The file is outside of the directory.\nFile: $testDataFile\nDirectory: $testDataDir" }
+    return testDataFile.parentFile
+        .relativeTo(testDataDir)
+        .resolve(testDataFile.nameWithoutExtension)
+        .toPath()
+        .map(Path::name)
+        .joinToString(".") { packagePart -> if (packagePart in KEYWORDS) packagePart + "_" else packagePart }
 }
 
 internal fun getSanitizedFileName(fileName: String): String =
