@@ -91,7 +91,6 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
         if (currentTestFileName != null || currentTestFileContents.isNotBlank()) {
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
             testFiles += TestFile(
-                name = fileName,
                 location = generatedSourcesDir.resolve(fileName),
                 contents = currentTestFileContents.toString()
             )

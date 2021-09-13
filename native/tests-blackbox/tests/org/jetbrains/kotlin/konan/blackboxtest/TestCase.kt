@@ -10,7 +10,6 @@ import java.io.File
 internal typealias PackageName = String
 
 internal data class TestFile(
-    val name: String,
     val location: File,
     val contents: String
 )
