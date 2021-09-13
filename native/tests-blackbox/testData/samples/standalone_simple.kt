@@ -1,4 +1,4 @@
-// MODE: STANDALONE
+// KIND: STANDALONE
 
 import kotlin.test.*
 

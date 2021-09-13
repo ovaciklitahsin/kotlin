@@ -1,4 +1,4 @@
-// MODE: STANDALONE_NO_TR
+// KIND: STANDALONE_NO_TR
 // ENTRY_POINT: foo.bar.altMain
 
 package foo.bar

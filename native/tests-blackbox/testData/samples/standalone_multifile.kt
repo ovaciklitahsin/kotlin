@@ -1,4 +1,4 @@
-// MODE: STANDALONE
+// KIND: STANDALONE
 
 // FILE: addition.kt
 import kotlin.test.*

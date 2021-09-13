@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.konan.blackboxtest.TestCompilerArgs.Companion.EXPLIC
 import org.jetbrains.kotlin.konan.blackboxtest.TestDirectives.ENTRY_POINT
 import org.jetbrains.kotlin.konan.blackboxtest.TestDirectives.FREE_COMPILER_ARGS
 import org.jetbrains.kotlin.konan.blackboxtest.TestDirectives.INPUT_DATA_FILE
-import org.jetbrains.kotlin.konan.blackboxtest.TestDirectives.MODE
+import org.jetbrains.kotlin.konan.blackboxtest.TestDirectives.KIND
 import org.jetbrains.kotlin.konan.blackboxtest.TestDirectives.OUTPUT_DATA_FILE
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
@@ -21,10 +21,10 @@ import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
 import java.io.File
 
 internal object TestDirectives : SimpleDirectivesContainer() {
-    val MODE by enumDirective<TestMode>(
+    val KIND by enumDirective<TestKind>(
         description = """
-            Usage: // MODE: [REGULAR, STANDALONE, STANDALONE_NO_TR]
-            Declares the mode of the test:
+            Usage: // KIND: [REGULAR, STANDALONE, STANDALONE_NO_TR]
+            Declares the kind of the test:
 
             - REGULAR (the default) - include this test into the shared test binary.
               All tested functions should be annotated with @kotlin.Test.
@@ -40,7 +40,7 @@ internal object TestDirectives : SimpleDirectivesContainer() {
     val ENTRY_POINT by stringDirective(
         description = """
             Specify custom program entry point. The default entry point is `main` function in the root package.
-            Note that this directive makes sense only in combination with // MODE: STANDALONE_NO_TR
+            Note that this directive makes sense only in combination with // KIND: STANDALONE_NO_TR
         """.trimIndent()
     )
 
@@ -54,7 +54,7 @@ internal object TestDirectives : SimpleDirectivesContainer() {
     val INPUT_DATA_FILE by stringDirective(
         description = """
             Specify the file which contains the text to be passed to process' input (stdin).
-            Note that this directive makes sense only in combination with // MODE: STANDALONE_NO_TR
+            Note that this directive makes sense only in combination with // KIND: STANDALONE_NO_TR
         """.trimIndent()
     )
 
@@ -70,7 +70,7 @@ internal object TestDirectives : SimpleDirectivesContainer() {
     )
 }
 
-internal enum class TestMode {
+internal enum class TestKind {
     REGULAR,
     STANDALONE,
     STANDALONE_NO_TR;
@@ -100,12 +100,12 @@ internal class TestCompilerArgs(val compilerArgs: List<String>) {
     }
 }
 
-internal fun parseTestMode(registeredDirectives: RegisteredDirectives, location: Location): TestMode {
-    if (MODE !in registeredDirectives)
-        return TestMode.REGULAR // The default one.
+internal fun parseTestKind(registeredDirectives: RegisteredDirectives, location: Location): TestKind {
+    if (KIND !in registeredDirectives)
+        return TestKind.REGULAR // The default one.
 
-    val values = registeredDirectives[MODE]
-    return values.singleOrNull() ?: fail { "$location: Exactly one test mode expected in $MODE directive: $values" }
+    val values = registeredDirectives[KIND]
+    return values.singleOrNull() ?: fail { "$location: Exactly one test kind expected in $KIND directive: $values" }
 }
 
 internal fun parseEntryPoint(registeredDirectives: RegisteredDirectives, location: Location): String {

@@ -1,4 +1,4 @@
-// MODE: REGULAR
+// KIND: REGULAR
 import kotlin.test.*
 
 @Test

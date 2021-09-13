@@ -1,4 +1,4 @@
-// MODE: STANDALONE_NO_TR
+// KIND: STANDALONE_NO_TR
 // OUTPUT_DATA_FILE: 4x42.out
 
 fun main() {

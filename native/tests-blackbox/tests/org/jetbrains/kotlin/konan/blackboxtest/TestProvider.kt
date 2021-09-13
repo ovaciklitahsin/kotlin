@@ -141,16 +141,16 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     val freeCompilerArgs = parseFreeCompilerArgs(registeredDirectives, location)
     val outputData = parseOutputData(baseDir = testDataFileDir, registeredDirectives, location)
 
-    return when (parseTestMode(registeredDirectives, location)) {
-        TestMode.REGULAR -> TestCase.Regular(
+    return when (parseTestKind(registeredDirectives, location)) {
+        TestKind.REGULAR -> TestCase.Regular(
             files = testFiles.map { testFile -> fixPackageDeclaration(testFile, effectivePackageName, testDataFile) },
             freeCompilerArgs = freeCompilerArgs,
             testDataFile = testDataFile,
             outputData = outputData,
             packageName = effectivePackageName
         )
-        TestMode.STANDALONE -> TestCase.Standalone.WithTestRunner(testFiles, freeCompilerArgs, testDataFile, outputData)
-        TestMode.STANDALONE_NO_TR -> {
+        TestKind.STANDALONE -> TestCase.Standalone.WithTestRunner(testFiles, freeCompilerArgs, testDataFile, outputData)
+        TestKind.STANDALONE_NO_TR -> {
             TestCase.Standalone.WithoutTestRunner(
                 files = testFiles,
                 freeCompilerArgs = freeCompilerArgs,
