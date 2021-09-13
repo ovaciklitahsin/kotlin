@@ -50,6 +50,13 @@ internal object TestDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
+    val FILE by stringDirective(
+        description = """
+            Usage: // FILE: name.kt
+            Declares file with specified name in current module.
+        """.trimIndent()
+    )
+
     val OUTPUT_DATA_FILE by stringDirective(
         description = """
             Specify the file which contains the expected program output. When program finishes its execution the actual output (stdout)
@@ -61,13 +68,6 @@ internal object TestDirectives : SimpleDirectivesContainer() {
         description = """
             Specify the file which contains the text to be passed to process' input (stdin).
             Note that this directive makes sense only in combination with // KIND: STANDALONE_NO_TR
-        """.trimIndent()
-    )
-
-    val FILE by stringDirective(
-        description = """
-            Usage: // FILE: name.kt
-            Declares file with specified name in current module.
         """.trimIndent()
     )
 
