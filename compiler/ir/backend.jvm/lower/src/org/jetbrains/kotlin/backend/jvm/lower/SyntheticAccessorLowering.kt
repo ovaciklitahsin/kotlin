@@ -695,7 +695,7 @@ private class SyntheticAccessorTransformer(
         val declarationRaw = owner as IrDeclarationWithVisibility
 
         // If this expression won't actually result in a JVM instruction call, access modifiers don't matter.
-        if (declarationRaw is IrFunction && (declarationRaw.isInline || context.irIntrinsics.getIntrinsic(declarationRaw.symbol) != null))
+        if (declarationRaw is IrFunction && (declarationRaw.isInline || context.getIntrinsic(declarationRaw.symbol) != null))
             return true
 
         // Enum entry constructors are generated as package-private and are accessed only from corresponding enum class
