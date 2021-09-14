@@ -437,3 +437,6 @@ val IrDeclaration.psiElement: PsiElement?
 @OptIn(ObsoleteDescriptorBasedAPI::class)
 val IrMemberAccessExpression<*>.psiElement: PsiElement?
     get() = (symbol.descriptor.original as? DeclarationDescriptorWithSource)?.psiElement
+
+fun IrFunction.isBridge(): Boolean =
+    origin == IrDeclarationOrigin.BRIDGE || origin == IrDeclarationOrigin.BRIDGE_SPECIAL
