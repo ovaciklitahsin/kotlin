@@ -377,7 +377,7 @@ class MethodSignatureMapper(private val context: JvmBackendContext) {
         }
 
     // TODO get rid of 'caller' argument
-    internal fun mapToCallableMethod(expression: IrCall, caller: IrFunction?): IrCallableMethod {
+    fun mapToCallableMethod(expression: IrCall, caller: IrFunction?): IrCallableMethod {
         val callee = expression.symbol.owner
         val calleeParent = expression.superQualifierSymbol?.owner
             ?: expression.dispatchReceiver?.type?.classOrNull?.owner?.let {
@@ -429,7 +429,7 @@ class MethodSignatureMapper(private val context: JvmBackendContext) {
         mapAsmMethod(findSuperDeclaration(function, isSuperCall))
 
     // Copied from KotlinTypeMapper.findSuperDeclaration.
-    internal fun findSuperDeclaration(function: IrSimpleFunction, isSuperCall: Boolean): IrSimpleFunction {
+    fun findSuperDeclaration(function: IrSimpleFunction, isSuperCall: Boolean): IrSimpleFunction {
         var current = function
         while (current.isFakeOverride) {
             // TODO: probably isJvmInterface instead of isInterface, here and in KotlinTypeMapper
