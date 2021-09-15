@@ -22,6 +22,7 @@ internal class GlobalTestEnvironment(
     val target: KonanTarget = HostManager.host,
     val kotlinNativeHome: File = defaultKotlinNativeHome,
     val lazyKotlinNativeClassLoader: Lazy<ClassLoader> = defaultKotlinNativeClassLoader,
+    val testMode: TestMode = defaultTestMode,
     val baseBuildDir: File = projectBuildDir
 ) {
     companion object {
@@ -39,11 +40,26 @@ internal class GlobalTestEnvironment(
             URLClassLoader(nativeClassPath, /* no parent class loader */ null).apply { setDefaultAssertionStatus(true) }
         }
 
+        private val defaultTestMode: TestMode = run {
+            val testModeName = System.getProperty(KOTLIN_NATIVE_TEST_MODE) ?: return@run TestMode.MULTIPLE_MODULES
+
+            TestMode.values().firstOrNull { it.name == testModeName } ?: fail {
+                buildString {
+                    appendLine("Unknown test mode name $testModeName.")
+                    appendLine("One of the following test modes should be passed through $KOTLIN_NATIVE_TEST_MODE system property:")
+                    TestMode.values().forEach { testMode ->
+                        appendLine("- ${testMode.name}: ${testMode.description}")
+                    }
+                }
+            }
+        }
+
         private val projectBuildDir: File
             get() = System.getenv(PROJECT_BUILD_DIR)?.let(::File) ?: fail { "Non-specified $PROJECT_BUILD_DIR environment variable" }
 
         private const val KOTLIN_NATIVE_HOME = "kotlin.native.home"
         private const val KOTLIN_NATIVE_CLASSPATH = "kotlin.internal.native.classpath"
+        private const val KOTLIN_NATIVE_TEST_MODE = "kotlin.internal.native.test.mode"
         private const val PROJECT_BUILD_DIR = "PROJECT_BUILD_DIR"
     }
 }
@@ -52,3 +68,17 @@ internal class TestRoots(
     val roots: Set<File>,
     val baseDir: File
 )
+
+internal enum class TestMode(val description: String) {
+    SINGLE_MODULE_NO_KLIBS(
+        description = "Compile all test files as a single module without producing intermediate KLIB."
+    ),
+    SINGLE_MODULE(
+        description = "Compile all test files as a single module with producing intermediate KLIB."
+    ),
+    MULTIPLE_MODULES(
+        description = "Compile each test file as one or many modules (depending on MODULE directives declared in the file)." +
+                " Then link KLIBs into the single executable file."
+    )
+}
+

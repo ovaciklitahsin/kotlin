@@ -47,6 +47,9 @@ projectTest(jUnit5Enabled = true) {
     workingDir = rootDir
     systemProperty("kotlin.native.home", kotlinNativeHome.absolutePath)
     systemProperty("kotlin.internal.native.classpath", kotlinNativeCompilerClassPath.files.joinToString(";"))
+    findProperty("kotlin.internal.native.test.mode")?.let { testModeName ->
+        systemProperty("kotlin.internal.native.test.mode", testModeName)
+    }
 
     useJUnitPlatform()
 }
