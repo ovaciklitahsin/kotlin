@@ -63,6 +63,15 @@ data class ConeKotlinTypeConflictingProjection(override val type: ConeKotlinType
         get() = ProjectionKind.INVARIANT
 }
 
+fun createTypeProjection(type: ConeKotlinType, projectionKind: ProjectionKind): ConeTypeProjection {
+    return when (projectionKind) {
+        ProjectionKind.INVARIANT -> type
+        ProjectionKind.IN -> ConeKotlinTypeProjectionIn(type)
+        ProjectionKind.OUT -> ConeKotlinTypeProjectionOut(type)
+        ProjectionKind.STAR -> ConeStarProjection
+    }
+}
+
 val ConeTypeProjection.type: ConeKotlinType?
     get() = when (this) {
         ConeStarProjection -> null
