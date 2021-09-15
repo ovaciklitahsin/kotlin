@@ -324,7 +324,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
             variable.transformAccessors()
         }
         variable.transformOtherChildren(transformer, ResolutionMode.ContextIndependent)
-        context.storeVariable(variable)
+        context.storeVariable(variable, session)
         dataFlowAnalyzer.exitLocalVariableDeclaration(variable)
         return variable
     }
@@ -534,7 +534,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
         doTransformTypeParameters(simpleFunction)
 
         val containingDeclaration = context.containerIfAny
-        return context.withSimpleFunction(simpleFunction) {
+        return context.withSimpleFunction(simpleFunction, session) {
             // TODO: I think it worth creating something like runAllPhasesForLocalFunction
             if (containingDeclaration != null && containingDeclaration !is FirClass) {
                 // For class members everything should be already prepared
@@ -629,7 +629,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                 constructor.transformValueParameters(transformer, data)
             }
             constructor.transformDelegatedConstructor(transformer, data)
-            context.forConstructorBody(constructor) {
+            context.forConstructorBody(constructor, session) {
                 constructor.transformBody(transformer, data)
             }
         }
@@ -645,7 +645,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
     ): FirAnonymousInitializer {
         if (implicitTypeOnly) return anonymousInitializer
         dataFlowAnalyzer.enterInitBlock(anonymousInitializer)
-        return context.withAnonymousInitializer(anonymousInitializer) {
+        return context.withAnonymousInitializer(anonymousInitializer, session) {
             val result =
                 transformDeclarationContent(anonymousInitializer, ResolutionMode.ContextIndependent) as FirAnonymousInitializer
             val graph = dataFlowAnalyzer.exitInitBlock(result)
@@ -665,7 +665,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
         }
 
         dataFlowAnalyzer.enterValueParameter(valueParameter)
-        val result = context.withValueParameter(valueParameter) {
+        val result = context.withValueParameter(valueParameter, session) {
             transformDeclarationContent(
                 valueParameter,
                 withExpectedType(valueParameter.returnTypeRef)

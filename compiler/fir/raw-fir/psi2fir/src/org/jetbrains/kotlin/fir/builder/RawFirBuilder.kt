@@ -996,7 +996,7 @@ open class RawFirBuilder(
                     isExternal = classOrObject.hasModifier(EXTERNAL_KEYWORD)
                 }
 
-                withCapturedTypeParameters(status.isInner, listOf()) {
+                withCapturedTypeParameters(status.isInner || isLocal, listOf()) {
                     buildRegularClass {
                         source = classOrObject.toFirSourceElement()
                         moduleData = baseModuleData
@@ -1012,7 +1012,7 @@ open class RawFirBuilder(
 
                         context.appendOuterTypeParameters(true, typeParameters)
                         context.pushFirTypeParameters(
-                            status.isInner,
+                            status.isInner || isLocal,
                             typeParameters.subList(0, classOrObject.typeParameters.size)
                         )
 

@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.canNarrowDownGetterType
 import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
 import org.jetbrains.kotlin.fir.declarations.utils.isFinal
-import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
@@ -518,21 +517,6 @@ fun isValidTypeParameterFromOuterClass(
     }
 
     return containsTypeParameter(classDeclaration)
-}
-
-fun FirClassLikeDeclaration.getActualTypeParametersCount(session: FirSession): Int {
-    var result = (if (this is FirTypeAlias) this.typeParameters else (this as FirClass).typeParameters).size
-
-    if (this is FirRegularClass && !isInner) {
-        return result
-    }
-
-    val containingClass = getContainingDeclaration(session) as? FirRegularClass
-    if (containingClass != null) {
-        result -= containingClass.typeParameters.size
-    }
-
-    return result
 }
 
 fun FirClassLikeDeclaration.getContainingDeclaration(session: FirSession): FirClassLikeDeclaration? {

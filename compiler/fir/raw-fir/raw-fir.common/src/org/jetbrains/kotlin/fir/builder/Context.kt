@@ -36,8 +36,8 @@ class Context<T> {
     val dispatchReceiverTypesStack = mutableListOf<ConeClassLikeType>()
     var containerIsExpect: Boolean = false
 
-    fun pushFirTypeParameters(notNested: Boolean, parameters: List<FirTypeParameterRef>) {
-        capturedTypeParameters.add(StatusFirTypeParameterSymbolList(notNested, parameters.map { it.symbol }))
+    fun pushFirTypeParameters(isInnerOrLocal: Boolean, parameters: List<FirTypeParameterRef>) {
+        capturedTypeParameters.add(StatusFirTypeParameterSymbolList(isInnerOrLocal, parameters.map { it.symbol }))
     }
 
     fun popFirTypeParameters() {
@@ -55,11 +55,11 @@ class Context<T> {
                 }
             }
 
-            if (!element.notNested) {
+            if (!element.isInnerOrLocal) {
                 break
             }
         }
     }
 
-    data class StatusFirTypeParameterSymbolList(val notNested: Boolean, val list: List<FirTypeParameterSymbol> = listOf())
+    data class StatusFirTypeParameterSymbolList(val isInnerOrLocal: Boolean, val list: List<FirTypeParameterSymbol> = listOf())
 }

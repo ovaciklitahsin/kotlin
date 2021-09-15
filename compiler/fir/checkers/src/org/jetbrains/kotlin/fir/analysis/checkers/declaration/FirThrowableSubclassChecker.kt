@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
+import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
 import org.jetbrains.kotlin.fir.types.ConeClassErrorType
 
@@ -25,22 +25,14 @@ object FirThrowableSubclassChecker : FirClassChecker() {
             reporter.reportOn(declaration.typeParameters.firstOrNull()?.source, FirErrors.GENERIC_THROWABLE_SUBCLASS, context)
 
             val source = when {
-                (declaration as? FirRegularClass)?.isInner == true -> declaration.source
+                (declaration as? FirRegularClass)?.let { it.isInner || it.isLocal } == true -> declaration.source
                 declaration is FirAnonymousObject -> (declaration.declarations.firstOrNull())?.source
                 else -> null
             }
             reporter.reportOn(source, FirErrors.INNER_CLASS_OF_GENERIC_THROWABLE_SUBCLASS, context)
-        } else if (declaration.hasGenericOuterDeclaration(context)) {
-            reporter.reportOn(declaration.source, FirErrors.INNER_CLASS_OF_GENERIC_THROWABLE_SUBCLASS, context)
         }
     }
 
     private fun FirClass.hasThrowableSupertype(context: CheckerContext) =
         superConeTypes.any { it !is ConeClassErrorType && it.isSubtypeOfThrowable(context.session) }
-
-    private fun FirClass.hasGenericOuterDeclaration(context: CheckerContext) =
-        classId.isLocal && context.containingDeclarations.anyIsGeneric()
-
-    private fun Collection<FirDeclaration>.anyIsGeneric() =
-        any { it is FirTypeParameterRefsOwner && it.typeParameters.isNotEmpty() }
 }
