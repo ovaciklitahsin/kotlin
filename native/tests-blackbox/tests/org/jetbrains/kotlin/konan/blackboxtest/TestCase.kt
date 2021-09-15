@@ -5,14 +5,45 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import java.io.File
 
 internal typealias PackageName = String
 
 internal data class TestFile(
     val location: File,
-    val contents: String
-)
+    val contents: String,
+    val module: TestModule
+) {
+    init {
+        module.files += this
+    }
+}
+
+internal class TestModule(
+    val name: String,
+    val dependencySymbols: Set<String>,
+    val friendSymbols: Set<String>
+) {
+    lateinit var dependencies: Set<TestModule>
+    lateinit var friends: Set<TestModule>
+
+    val files = mutableListOf<TestFile>()
+
+    fun initialize(allModules: Collection<TestModule>) {
+        if (dependencySymbols.isEmpty() && friendSymbols.isEmpty()) {
+            dependencies = emptySet()
+            friends = emptySet()
+        } else {
+            val allModulesMap = allModules.associateBy { it.name }
+            dependencies = dependencySymbols.mapTo(mutableSetOf()) { allModulesMap.findModule(it) }
+            friends = friendSymbols.mapTo(mutableSetOf()) { allModulesMap.findModule(it) }
+        }
+    }
+
+    private fun Map<String, TestModule>.findModule(name: String): TestModule =
+        this[name] ?: fail { "Module $name not found among $this@TestModule dependencies/friends" }
+}
 
 /**
  *         TestCase

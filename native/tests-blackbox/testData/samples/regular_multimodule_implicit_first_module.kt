@@ -1,6 +1,4 @@
 // FILE: addition.kt
-package samples.regular_multifile_with_explicit_package
-
 import kotlin.test.*
 
 @Test
@@ -9,8 +7,6 @@ fun addition() {
 }
 
 // FILE: multiplication.kt
-package samples.regular_multifile_with_explicit_package.a
-
 import kotlin.test.*
 
 @Test
@@ -18,9 +14,8 @@ fun multiplication () {
     assertEquals(42, 21 * 2)
 }
 
+// MODULE: b(default)
 // FILE: subtraction.kt
-package samples.regular_multifile_with_explicit_package.b
-
 import kotlin.test.*
 
 @Test
@@ -28,9 +23,8 @@ fun subtraction () {
     assertEquals(42, 50 - 8)
 }
 
+// MODULE: c()(default)
 // FILE: division.kt
-package samples.regular_multifile_with_explicit_package.a.b
-
 import kotlin.test.*
 
 @Test

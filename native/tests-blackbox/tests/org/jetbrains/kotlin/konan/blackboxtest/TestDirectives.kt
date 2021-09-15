@@ -125,30 +125,24 @@ internal fun parseEntryPoint(registeredDirectives: RegisteredDirectives, locatio
     return entryPoint
 }
 
-internal data class TestModuleInfo(val name: String, val dependencies: Set<String>, val friends: Set<String>) {
-    companion object {
-        private val TEST_MODULE_REGEX = Regex("^([a-zA-Z0-9_]+)(\\(([a-zA-Z0-9_,]*)\\)(\\(([a-zA-Z0-9_,]*)\\))?)?$")
+internal fun parseModule(parsedDirective: RegisteredDirectivesParser.ParsedDirective, location: Location): TestModule {
+    val module = parsedDirective.values.singleOrNull()?.toString()?.let(TEST_MODULE_REGEX::matchEntire)?.let { match ->
+        TestModule(
+            name = match.groupValues[1],
+            dependencySymbols = match.groupValues[3].split(',').filter(String::isNotEmpty).toSet(),
+            friendSymbols = match.groupValues[5].split(',').filter(String::isNotEmpty).toSet()
+        )
+    }
 
-        fun parse(value: String): TestModuleInfo? {
-            val match = TEST_MODULE_REGEX.matchEntire(value) ?: return null
-            return TestModuleInfo(
-                name = match.groupValues[1],
-                dependencies = match.groupValues[3].split(',').toSet(),
-                friends = match.groupValues[5].split(',').toSet()
-            )
-        }
+    return module ?: fail {
+        """
+            $location: Invalid contents of ${parsedDirective.directive} directive: ${parsedDirective.values}
+            ${parsedDirective.directive.description}
+        """.trimIndent()
     }
 }
 
-internal fun parseModuleInfo(parsedDirective: RegisteredDirectivesParser.ParsedDirective, location: Location): TestModuleInfo {
-    return parsedDirective.values.singleOrNull()?.toString()?.let(TestModuleInfo.Companion::parse)
-        ?: fail {
-            """
-                $location: Invalid contents of ${parsedDirective.directive} directive: ${parsedDirective.values}
-                ${parsedDirective.directive.description}
-            """.trimIndent()
-        }
-}
+private val TEST_MODULE_REGEX = Regex("^([a-zA-Z0-9_]+)(\\(([a-zA-Z0-9_,]*)\\)(\\(([a-zA-Z0-9_,]*)\\))?)?$")
 
 internal fun parseFileName(parsedDirective: RegisteredDirectivesParser.ParsedDirective, location: Location): String {
     val fileName = parsedDirective.values.singleOrNull()?.toString()

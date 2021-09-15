@@ -39,9 +39,21 @@ public class NativeBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
         }
 
         @Test
-        @TestMetadata("regular_multifile_with_explicit_package.kt")
-        public void testRegular_multifile_with_explicit_package() throws Exception {
-            runTest("native/tests-blackbox/testData/samples/regular_multifile_with_explicit_package.kt");
+        @TestMetadata("regular_multifile_with_explicit_packages.kt")
+        public void testRegular_multifile_with_explicit_packages() throws Exception {
+            runTest("native/tests-blackbox/testData/samples/regular_multifile_with_explicit_packages.kt");
+        }
+
+        @Test
+        @TestMetadata("regular_multimodule.kt")
+        public void testRegular_multimodule() throws Exception {
+            runTest("native/tests-blackbox/testData/samples/regular_multimodule.kt");
+        }
+
+        @Test
+        @TestMetadata("regular_multimodule_implicit_first_module.kt")
+        public void testRegular_multimodule_implicit_first_module() throws Exception {
+            runTest("native/tests-blackbox/testData/samples/regular_multimodule_implicit_first_module.kt");
         }
 
         @Test

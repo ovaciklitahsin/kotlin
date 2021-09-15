@@ -5,7 +5,10 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.test.directives.model.Directive
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertNotEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
@@ -81,34 +84,40 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     val effectivePackageName = computePackageName(testDataDir = environment.testRoots.baseDir, testDataFile = testDataFile)
 
     val testFiles = mutableListOf<TestFile>()
+    var currentTestModule = TestModule(name = DEFAULT_MODULE_NAME, dependencySymbols = emptySet(), friendSymbols = emptySet())
 
     var currentTestFileName: String? = null
     val currentTestFileContents = StringBuilder()
 
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
+    var lastParsedDirective: Directive? = null
 
-    fun finishTestFile(newFileName: String?, lineNumber: Int) {
+    fun beginTestFile(fileName: String, lineNumber: Int) {
+        currentTestFileName = fileName
+        repeat(lineNumber) { currentTestFileContents.appendLine() } // Preserve line numbers as in the original test data file.
+    }
+
+    fun finishTestFile() {
         if (currentTestFileName != null || currentTestFileContents.isNotBlank()) {
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
             testFiles += TestFile(
                 location = generatedSourcesDir.resolve(fileName),
-                contents = currentTestFileContents.toString()
+                contents = currentTestFileContents.toString(),
+                module = currentTestModule
             )
         }
 
         currentTestFileContents.clear()
-
-        if (newFileName != null) {
-            currentTestFileName = newFileName
-            repeat(lineNumber) { currentTestFileContents.appendLine() } // Preserve line numbers as in the original test data file.
-        }
+        currentTestFileName = null
     }
 
     testDataFile.readLines().forEachIndexed { lineNumber, line ->
+        val location = Location(testDataFile, lineNumber)
+        val expectFileDirectiveAfterModuleDirective =
+            lastParsedDirective == TestDirectives.MODULE // Only FILE directive may follow MODULE directive.
+
         val rawDirective = RegisteredDirectivesParser.parseDirective(line)
         if (rawDirective != null) {
-            val location = Location(testDataFile, lineNumber)
-
             val parsedDirective = try {
                 directivesParser.convertToRegisteredDirective(rawDirective)
             } catch (e: AssertionError) {
@@ -117,26 +126,54 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
             }
 
             if (parsedDirective != null) {
-                when (parsedDirective.directive) {
+                when (val directive = parsedDirective.directive) {
                     TestDirectives.FILE -> {
                         val newFileName = parseFileName(parsedDirective, location)
-                        finishTestFile(newFileName, lineNumber)
+                        finishTestFile()
+                        beginTestFile(newFileName, lineNumber)
                     }
-                    TestDirectives.MODULE -> {
-                        val moduleInfo = parseModuleInfo(parsedDirective, location)
-                        print(moduleInfo)
+                    else -> {
+                        assertFalse(expectFileDirectiveAfterModuleDirective) {
+                            "$location: Directive $directive encountered after ${TestDirectives.MODULE} directive but was expecting ${TestDirectives.FILE}"
+                        }
+
+                        when (directive) {
+                            TestDirectives.MODULE -> {
+                                finishTestFile()
+                                currentTestModule = parseModule(parsedDirective, location)
+                            }
+                            else -> {
+                                assertNotEquals(TestDirectives.FILE, lastParsedDirective) {
+                                    "$location: Global directive $directive encountered after ${TestDirectives.FILE} directive"
+                                }
+                                assertNotEquals(TestDirectives.MODULE, lastParsedDirective) {
+                                    "$location: Global directive $directive encountered after ${TestDirectives.MODULE} directive"
+                                }
+
+                                directivesParser.addParsedDirective(parsedDirective)
+                            }
+                        }
                     }
-                    else -> directivesParser.addParsedDirective(parsedDirective)
                 }
+
                 currentTestFileContents.appendLine()
+                lastParsedDirective = parsedDirective.directive
                 return@forEachIndexed
             }
+        }
+
+        if (expectFileDirectiveAfterModuleDirective) {
+            // Was expecting a line with the FILE directive as this is the only possible continuation of a line with the MODULE directive, but failed.
+            fail { "$location: ${TestDirectives.FILE} directive expected after ${TestDirectives.MODULE} directive" }
         }
 
         currentTestFileContents.appendLine(line)
     }
 
-    finishTestFile(newFileName = null, lineNumber = 0)
+    finishTestFile()
+
+    val testModules = testFiles.map { it.module }.toSet()
+    testModules.forEach { it.initialize(testModules) }
 
     val registeredDirectives = directivesParser.build()
     val location = Location(testDataFile)
