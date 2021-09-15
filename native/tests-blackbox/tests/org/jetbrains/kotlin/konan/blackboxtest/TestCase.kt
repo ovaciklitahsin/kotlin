@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import java.io.File
 
@@ -30,19 +31,31 @@ internal class TestModule(
 
     val files = mutableListOf<TestFile>()
 
-    fun initialize(allModules: Collection<TestModule>) {
-        if (dependencySymbols.isEmpty() && friendSymbols.isEmpty()) {
-            dependencies = emptySet()
-            friends = emptySet()
-        } else {
-            val allModulesMap = allModules.associateBy { it.name }
-            dependencies = dependencySymbols.mapTo(mutableSetOf()) { allModulesMap.findModule(it) }
-            friends = friendSymbols.mapTo(mutableSetOf()) { allModulesMap.findModule(it) }
+    companion object {
+        fun Collection<TestModule>.initializeModules() {
+            val mapping: Map</* module name */ String, TestModule> = toSet()
+                .groupingBy { module -> module.name }
+                .aggregate { name, _: TestModule?, module, isFirst ->
+                    assertTrue(isFirst) { "Multiple test modules with the same name found: $name" }
+                    module
+                }
+
+            fun findModule(name: String): TestModule = mapping[name] ?: fail { "Module $name not found" }
+            fun Set<String>.findModulesForSymbols(): Set<TestModule> = mapTo(mutableSetOf(), ::findModule)
+
+            mapping.values.forEach { module ->
+                with(module) {
+                    if (dependencySymbols.isEmpty() && friendSymbols.isEmpty()) {
+                        dependencies = emptySet()
+                        friends = emptySet()
+                    } else {
+                        dependencies = dependencySymbols.findModulesForSymbols()
+                        friends = friendSymbols.findModulesForSymbols()
+                    }
+                }
+            }
         }
     }
-
-    private fun Map<String, TestModule>.findModule(name: String): TestModule =
-        this[name] ?: fail { "Module $name not found among $this@TestModule dependencies/friends" }
 }
 
 /**

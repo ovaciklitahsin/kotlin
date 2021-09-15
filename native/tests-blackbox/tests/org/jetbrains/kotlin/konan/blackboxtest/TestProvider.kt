@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.konan.blackboxtest.TestModule.Companion.initializeModules
 import org.jetbrains.kotlin.test.directives.model.Directive
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
@@ -172,8 +173,8 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
     finishTestFile()
 
-    val testModules = testFiles.map { it.module }.toSet()
-    testModules.forEach { it.initialize(testModules) }
+    // Initialize module dependencies.
+    testFiles.map { it.module }.initializeModules()
 
     val registeredDirectives = directivesParser.build()
     val location = Location(testDataFile)
