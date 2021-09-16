@@ -5,7 +5,7 @@ fun foo(b: B<Int, Int>) {}
 fun test_1(b: B<String, Number>) {
     foo(b.myMap {
         it.k.length // implicits
-    } as B<Int, Int>)
+    } <!UNCHECKED_CAST!>as B<Int, Int><!>)
 }
 
 fun test_2(s: String) {

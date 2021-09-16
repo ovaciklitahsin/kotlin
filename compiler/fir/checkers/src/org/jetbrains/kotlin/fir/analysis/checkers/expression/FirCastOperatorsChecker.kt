@@ -31,6 +31,8 @@ object FirCastOperatorsChecker : FirTypeOperatorCallChecker() {
                 reporter.reportOn(expression.source, FirErrors.CAST_NEVER_SUCCEEDS, context)
             } else if (castType == CastingType.Always) {
                 reporter.reportOn(expression.source, FirErrors.USELESS_CAST, context)
+            } else if (isCastErased(actualType, targetType, context)) {
+                reporter.reportOn(expression.source, FirErrors.UNCHECKED_CAST, actualType, targetType, context)
             }
         } else if (expression.operation == FirOperation.IS) {
             if (isCastErased(actualType, targetType, context)) {

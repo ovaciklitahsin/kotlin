@@ -479,6 +479,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.USELESS_IS_CHECK
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.USELESS_VARARG_ON_PARAMETER
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.OPT_IN_ARGUMENT_IS_NOT_MARKER
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.OPT_IN_WITHOUT_ARGUMENTS
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNCHECKED_CAST
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.VALUE_CLASS_CANNOT_BE_CLONEABLE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.VALUE_PARAMETER_WITH_NO_TYPE_ANNOTATION
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.VAL_OR_VAR_ON_CATCH_PARAMETER
@@ -1486,6 +1487,7 @@ class FirDefaultErrorMessages {
             map.put(ENUM_ENTRY_AS_TYPE, "Use of enum entry names as types is not allowed, use enum type instead")
             map.put(CANNOT_CHECK_FOR_ERASED, "Cannot check for instance of erased type: {0}", RENDER_TYPE)
             map.put(CAST_NEVER_SUCCEEDS, "This cast can never succeed")
+            map.put(UNCHECKED_CAST, "Unchecked cast: {0} to {1}", RENDER_TYPE, RENDER_TYPE)
 
             // When expressions
             map.put(EXPECTED_CONDITION, "Expected condition of type Boolean")
