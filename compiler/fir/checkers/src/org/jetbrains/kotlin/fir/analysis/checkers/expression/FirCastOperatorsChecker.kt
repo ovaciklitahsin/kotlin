@@ -5,9 +5,10 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
+import org.jetbrains.kotlin.fir.analysis.checkers.CastingType
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.isCastErased
-import org.jetbrains.kotlin.fir.analysis.checkers.isCastPossible
+import org.jetbrains.kotlin.fir.analysis.checkers.checkCasting
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
@@ -25,8 +26,11 @@ object FirCastOperatorsChecker : FirTypeOperatorCallChecker() {
 
         val isSafeAs = expression.operation == FirOperation.SAFE_AS
         if (expression.operation == FirOperation.AS || isSafeAs) {
-            if (!isCastPossible(actualType, targetType, isSafeAs, context)) {
+            val castType = checkCasting(actualType, targetType, isSafeAs, context)
+            if (castType == CastingType.Impossible) {
                 reporter.reportOn(expression.source, FirErrors.CAST_NEVER_SUCCEEDS, context)
+            } else if (castType == CastingType.Always) {
+                reporter.reportOn(expression.source, FirErrors.USELESS_CAST, context)
             }
         } else if (expression.operation == FirOperation.IS) {
             if (isCastErased(actualType, targetType, context)) {
