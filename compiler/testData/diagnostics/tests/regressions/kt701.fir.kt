@@ -1,5 +1,5 @@
 // KT-702 Type inference failed
-fun <T> getJavaClass() : java.lang.Class<T> { return "" as Class<T> }
+fun <T> getJavaClass() : java.lang.Class<T> { return "" <!CAST_NEVER_SUCCEEDS!>as<!> Class<T> }
 
 public class Throwables() {
     companion object {

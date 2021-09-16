@@ -710,6 +710,7 @@ object PositioningStrategies {
         override fun mark(element: KtExpression): List<TextRange> {
             return when (element) {
                 is KtBinaryExpression -> mark(element.operationReference)
+                is KtBinaryExpressionWithTypeRHS -> mark(element.operationReference)
                 is KtUnaryExpression -> mark(element.operationReference)
                 else -> super.mark(element)
             }

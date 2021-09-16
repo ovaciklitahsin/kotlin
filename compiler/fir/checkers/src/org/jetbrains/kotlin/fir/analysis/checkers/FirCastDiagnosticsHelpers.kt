@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.fir.analysis.checkers
 
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.declarations.utils.isFinal
+import org.jetbrains.kotlin.fir.declarations.utils.isInterface
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.platformClassMapper
@@ -17,6 +19,85 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.AbstractTypeChecker.findCorrespondingSupertypes
 import org.jetbrains.kotlin.types.model.typeConstructor
+
+fun isCastPossible(
+    lhsType: ConeKotlinType,
+    rhsType: ConeKotlinType,
+    isSafeCase: Boolean,
+    context: CheckerContext
+): Boolean {
+    val lhsLowerType = lhsType.lowerBoundIfFlexible()
+    val rhsLowerType = rhsType.lowerBoundIfFlexible()
+
+    if (lhsLowerType is ConeIntersectionType) {
+        var result = false
+        for (intersectedType in lhsLowerType.intersectedTypes) {
+            val isIntersectedCastPossible = isCastPossible(intersectedType, rhsLowerType, isSafeCase, context)
+            val intersectedTypeSymbol = intersectedType.toRegularClassSymbol(context.session)
+            if (intersectedTypeSymbol?.isInterface == false && !isIntersectedCastPossible) {
+                return false // Any class type in intersection type should be subtype of RHS
+            }
+            result = result or isIntersectedCastPossible
+        }
+
+        return result
+    }
+
+    val lhsNullable = lhsLowerType.canBeNull
+    val rhsNullable = rhsLowerType.canBeNull
+    if (lhsLowerType.isNothing) return true
+    if (lhsLowerType.isNullableNothing && !rhsNullable) {
+        return isSafeCase
+    }
+    if (rhsLowerType.isNothing) return false
+    if (rhsLowerType.isNullableNothing) return lhsNullable
+    if (lhsNullable && rhsNullable) return true
+    val lhsClassSymbol = lhsLowerType.toRegularClassSymbol(context.session)
+    val rhsClassSymbol = rhsLowerType.toRegularClassSymbol(context.session)
+    if (isRelated(lhsLowerType, rhsLowerType, lhsClassSymbol, rhsClassSymbol, context)) return true
+    // This is an oversimplification (which does not render the method incomplete):
+    // we consider any type parameter capable of taking any value, which may be made more precise if we considered bounds
+    if (lhsLowerType is ConeTypeParameterType || rhsLowerType is ConeTypeParameterType) return true
+
+    if (lhsClassSymbol?.isFinal == true || rhsClassSymbol?.isFinal == true) return false
+    if (lhsClassSymbol?.isInterface == true || rhsClassSymbol?.isInterface == true) return true
+    return false
+}
+
+/**
+ * Two types are related, roughly, when one of them is a subtype of the other constructing class
+ *
+ * Note that some types have platform-specific counterparts, i.e. kotlin.String is mapped to java.lang.String,
+ * such types (and all their sub- and supertypes) are related too.
+ *
+ * Due to limitations in PlatformToKotlinClassMap, we only consider mapping of platform classes to Kotlin classed
+ * (i.e. java.lang.String -> kotlin.String) and ignore mappings that go the other way.
+ */
+private fun isRelated(
+    aType: ConeKotlinType,
+    bType: ConeKotlinType,
+    aClassSymbol: FirRegularClassSymbol?,
+    bClassSymbol: FirRegularClassSymbol?,
+    context: CheckerContext
+): Boolean {
+    val typeContext = context.session.typeContext
+
+    if (AbstractTypeChecker.isSubtypeOf(typeContext, aType, bType) ||
+        AbstractTypeChecker.isSubtypeOf(typeContext, bType, aType)
+    ) {
+        return true
+    }
+
+    fun getCorrespondingKotlinClass(type: ConeKotlinType): ConeKotlinType {
+        return context.session.platformClassMapper.getCorrespondingKotlinClass(type.classId)?.defaultType(listOf()) ?: type
+    }
+
+    val aNormalizedType = getCorrespondingKotlinClass(aClassSymbol?.defaultType() ?: aType)
+    val bNormalizedType = getCorrespondingKotlinClass(bClassSymbol?.defaultType() ?: bType)
+
+    return AbstractTypeChecker.isSubtypeOf(typeContext, aNormalizedType, bNormalizedType) ||
+            AbstractTypeChecker.isSubtypeOf(typeContext, bNormalizedType, aNormalizedType)
+}
 
 fun isCastErased(supertype: ConeKotlinType, subtype: ConeKotlinType, context: CheckerContext): Boolean {
     val typeContext = context.session.typeContext
