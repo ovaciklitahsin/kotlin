@@ -529,7 +529,9 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
                     generateResolvedAccessExpression(source, resultVar)
                 else
                     resultInitializer,
-                FirOperation.ASSIGN, convert
+                FirOperation.ASSIGN,
+                resultInitializer.annotations,
+                convert
             )
 
             fun appendAssignment() {
@@ -878,6 +880,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
         rhs: T?,
         value: FirExpression, // value is FIR for rhs
         operation: FirOperation,
+        annotations: List<FirAnnotation>,
         convert: T.() -> FirExpression
     ): FirStatement {
         val unwrappedLhs = this.unwrap() ?: return buildErrorExpression {
@@ -890,9 +893,11 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
                 context.arraySetArgument[unwrappedLhs] = value
             }
             return if (operation == FirOperation.ASSIGN) {
-                unwrappedLhs.convert()
+                val result = unwrappedLhs.convert()
+                (result.annotations as MutableList<FirAnnotation>) += annotations
+                result
             } else {
-                generateAugmentedArraySetCall(unwrappedLhs, baseSource, operation, rhs, convert)
+                generateAugmentedArraySetCall(unwrappedLhs, baseSource, operation, rhs, annotations, convert)
             }
         }
 
@@ -909,6 +914,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
                     )
                 }
                 rightArgument = value
+                this.annotations += annotations
             }
         }
         require(operation == FirOperation.ASSIGN)
@@ -916,7 +922,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
         if (this?.elementType == SAFE_ACCESS_EXPRESSION && this != null) {
             val safeCallNonAssignment = convert() as? FirSafeCallExpression
             if (safeCallNonAssignment != null) {
-                return putAssignmentToSafeCall(safeCallNonAssignment, baseSource, value)
+                return putAssignmentToSafeCall(safeCallNonAssignment, baseSource, value, annotations)
             }
         }
 
@@ -924,6 +930,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
             source = baseSource
             rValue = value
             calleeReference = initializeLValue(unwrappedLhs) { convert() as? FirQualifiedAccess }
+            this.annotations += annotations
         }
     }
 
@@ -931,7 +938,8 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
     private fun putAssignmentToSafeCall(
         safeCallNonAssignment: FirSafeCallExpression,
         baseSource: FirSourceElement?,
-        value: FirExpression
+        value: FirExpression,
+        annotations: List<FirAnnotation>
     ): FirSafeCallExpression {
         val nestedAccess = safeCallNonAssignment.regularQualifiedAccess
 
@@ -940,6 +948,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
             rValue = value
             calleeReference = nestedAccess.calleeReference
             explicitReceiver = safeCallNonAssignment.checkedSubjectRef.value
+            this.annotations += annotations
         }
 
         safeCallNonAssignment.replaceRegularQualifiedAccess(
@@ -954,6 +963,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
         baseSource: FirSourceElement?,
         operation: FirOperation,
         rhs: T?,
+        annotations: List<FirAnnotation>,
         convert: T.() -> FirExpression
     ): FirStatement {
         return buildAugmentedArraySetCall {
@@ -961,6 +971,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
             this.operation = operation
             assignCall = generateAugmentedCallForAugmentedArraySetCall(unwrappedReceiver, operation, rhs, convert)
             setGetBlock = generateSetGetBlockForAugmentedArraySetCall(unwrappedReceiver, baseSource, operation, rhs, convert)
+            this.annotations += annotations
         }
     }
 
