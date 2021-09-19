@@ -122,6 +122,9 @@
         13
       ],
       "nestedClassNameMemoizedSerializedSize": -1,
+      "contextReceiverType_": [],
+      "contextReceiverTypeId_": [],
+      "contextReceiverTypeIdMemoizedSerializedSize": -1,
       "constructor_": [
         {
           "unknownFields": {
@@ -513,6 +516,9 @@
             "memoizedHashCode": 0
           },
           "receiverTypeId_": 0,
+          "contextReceiverType_": [],
+          "contextReceiverTypeId_": [],
+          "contextReceiverTypeIdMemoizedSerializedSize": -1,
           "valueParameter_": [],
           "typeTable_": {
             "unknownFields": {
@@ -688,6 +694,9 @@
             "memoizedHashCode": 0
           },
           "receiverTypeId_": 0,
+          "contextReceiverType_": [],
+          "contextReceiverTypeId_": [],
+          "contextReceiverTypeIdMemoizedSerializedSize": -1,
           "valueParameter_": [],
           "typeTable_": {
             "unknownFields": {
@@ -863,6 +872,9 @@
             "memoizedHashCode": 0
           },
           "receiverTypeId_": 0,
+          "contextReceiverType_": [],
+          "contextReceiverTypeId_": [],
+          "contextReceiverTypeIdMemoizedSerializedSize": -1,
           "valueParameter_": [],
           "typeTable_": {
             "unknownFields": {
