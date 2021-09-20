@@ -12,6 +12,6 @@ interface AbstractFirBasedSymbol<E> where E : FirSymbolOwner<E>, E : FirDeclarat
 fun foo(firAdaptee: FirFunction<*>) {}
 
 fun test(symbol: AbstractFirBasedSymbol<*>) {
-    val firAdaptee = symbol.fir <!UNCHECKED_CAST!>as FirFunction<!>  // TODO: fix incorrect warning
+    val firAdaptee = symbol.fir <!UNCHECKED_CAST!>as FirFunction<!>  // TODO: KT-48832
     foo(firAdaptee)
 }
