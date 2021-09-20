@@ -69,7 +69,7 @@ class FirSpecificTypeResolverTransformer(
     override fun transformTypeRef(typeRef: FirTypeRef, data: ScopeClassDeclaration): FirResolvedTypeRef {
         session.lookupTracker?.recordTypeLookup(typeRef, data.scope.scopeOwnerLookupNames, currentFile?.source)
 
-        withBareTypes(false) {
+        withBareTypes(allowed = false) {
             typeRef.transformChildren(this, data)
         }
 
