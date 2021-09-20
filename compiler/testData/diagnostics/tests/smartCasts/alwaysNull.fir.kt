@@ -18,5 +18,5 @@ fun bar(s: String?) {
     s.gav()
     s <!USELESS_CAST!>as? String<!>
     s as String?
-    s <!CAST_NEVER_SUCCEEDS!>as<!> String
+    s as String
 }

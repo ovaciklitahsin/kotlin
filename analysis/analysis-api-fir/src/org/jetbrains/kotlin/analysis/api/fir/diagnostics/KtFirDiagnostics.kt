@@ -2092,6 +2092,10 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         abstract val type: KtType
     }
 
+    abstract class CastNeverSucceeds : KtFirDiagnostic<KtBinaryExpressionWithTypeRHS>() {
+        override val diagnosticClass get() = CastNeverSucceeds::class
+    }
+
     abstract class UselessCast : KtFirDiagnostic<KtBinaryExpressionWithTypeRHS>() {
         override val diagnosticClass get() = UselessCast::class
     }

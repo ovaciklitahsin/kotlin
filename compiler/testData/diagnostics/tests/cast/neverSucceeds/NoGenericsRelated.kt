@@ -1,3 +1,4 @@
+// FIR_IDENTICAL
 // !DIAGNOSTICS: -USELESS_CAST -UNCHECKED_CAST
 interface T1
 interface T2
