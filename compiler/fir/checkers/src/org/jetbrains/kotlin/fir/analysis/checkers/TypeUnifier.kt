@@ -40,7 +40,7 @@ class TypeUnifier(private val session: FirSession, private val typeParameterSymb
                 val localResult = UnificationResult()
                 doUnify(intersectedType, projectWithVariables, localResult)
 
-                for ((typeParameterSymbol, typeParameterType) in localResult.substitution) {
+                for ((typeParameterSymbol, typeParameterType) in localResult.getSubstitution()) {
                     val existingTypeParameterType = intersectionResult[typeParameterSymbol]
                     if (existingTypeParameterType == null ||
                         AbstractTypeChecker.isSubtypeOf(session.typeContext, typeParameterType, existingTypeParameterType)
@@ -71,12 +71,10 @@ class TypeUnifier(private val session: FirSession, private val typeParameterSymb
         // Foo? ~ X?  =>  Foo ~ X
         if (known.isMarkedNullable && withVariables.isMarkedNullable) {
             doUnify(
-                createTypeProjection(
-                    known.withNullability(ConeNullability.NOT_NULL, session.typeContext),
+                known.withNullability(ConeNullability.NOT_NULL, session.typeContext).toTypeProjection(
                     knownProjectionKind
                 ) as ConeKotlinTypeProjection,
-                createTypeProjection(
-                    withVariables.withNullability(ConeNullability.NOT_NULL, session.typeContext),
+                withVariables.withNullability(ConeNullability.NOT_NULL, session.typeContext).toTypeProjection(
                     withVariablesProjectionKind
                 ) as ConeKotlinTypeProjection,
                 result
@@ -138,8 +136,7 @@ class TypeUnifier(private val session: FirSession, private val typeParameterSymb
 class UnificationResult {
     private var success: Boolean = true
     private var failedVariables: MutableSet<FirTypeParameterSymbol> = mutableSetOf()
-
-    var substitution: MutableMap<FirTypeParameterSymbol, ConeKotlinType> = mutableMapOf()
+    private val substitution: MutableMap<FirTypeParameterSymbol, ConeKotlinType> = mutableMapOf()
 
     fun fail() {
         success = false
@@ -155,5 +152,9 @@ class UnificationResult {
         } else {
             substitution[key] = value
         }
+    }
+
+    fun getSubstitution(): Map<FirTypeParameterSymbol, ConeKotlinType> {
+        return substitution
     }
 }

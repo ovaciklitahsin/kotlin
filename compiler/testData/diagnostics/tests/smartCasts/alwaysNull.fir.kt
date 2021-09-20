@@ -16,7 +16,7 @@ fun String?.gav() {}
 fun bar(s: String?) {
     if (s != null) return
     s.gav()
-    s <!USELESS_CAST!>as? String<!>
+    s as? String
     s as String?
     s as String
 }

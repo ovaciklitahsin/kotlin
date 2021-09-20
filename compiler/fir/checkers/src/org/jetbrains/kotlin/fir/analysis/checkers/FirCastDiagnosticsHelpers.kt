@@ -222,7 +222,7 @@ fun findStaticallyKnownSubtype(
         // Now, let's try to unify Collection<T> and Collection<Foo> solution is a map from T to Foo
         val typeUnifier = TypeUnifier(session, variables)
         val unificationResult = typeUnifier.unify(supertype, supertypeWithVariables as ConeKotlinTypeProjection)
-        unificationResult.substitution
+        unificationResult.getSubstitution().toMutableMap()
     } else {
         mutableMapOf()
     }
