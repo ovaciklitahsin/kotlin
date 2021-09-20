@@ -173,10 +173,10 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                 )
 
                 val actualTypeParametersCount =
-                    if (symbol is FirTypeAliasSymbol) {
-                        outerDeclarations.sumOf { it?.let { d -> getActualTypeParametersCount(d) } ?: 0 }
-                    } else {
-                        (symbol as FirClassSymbol<*>).typeParameterSymbols.size
+                    when (symbol) {
+                        is FirTypeAliasSymbol ->
+                            outerDeclarations.sumOf { it?.let { d -> getActualTypeParametersCount(d) } ?: 0 }
+                        else -> (symbol as FirClassSymbol<*>).typeParameterSymbols.size
                     }
 
                 for ((typeParameterIndex, typeParameter) in originalTypeParameters.withIndex()) {
@@ -201,7 +201,13 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                         val type = ConeTypeParameterTypeImpl(ConeTypeParameterLookupTag(typeParameter.symbol), isNullable = false)
                         val substituted = actualSubstitutor.substituteOrNull(type)
                         if (substituted == null) {
-                            createDiagnosticsIfExists(parameterClass, qualifierPartIndex, symbol, typeRef, null)?.let { return it }
+                            createDiagnosticsIfExists(
+                                parameterClass,
+                                qualifierPartIndex,
+                                symbol,
+                                typeRef,
+                                qualifierPartArgumentsCount = null
+                            )?.let { return it }
                         } else {
                             allTypeArguments.add(substituted)
                         }
@@ -220,7 +226,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                                 index,
                                 symbol,
                                 typeRef,
-                                null
+                                qualifierPartArgumentsCount = null
                             )?.let { return it }
                         }
                     }
@@ -238,42 +244,42 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
     }
 
     private fun collectTypeParameters(symbol: FirClassLikeSymbol<*>): List<FirTypeParameterRef> {
-        return if (symbol is FirTypeAliasSymbol) {
-            val typeAliasFir = symbol.fir
-            val typeAliasTypeParameters = typeAliasFir.typeParameters.toMutableList()
-            val fullyExpandedClass = typeAliasFir.fullyExpandedClass(session)
-            val newTypeParameters: MutableList<FirTypeParameterRef>
+        if (symbol is FirClassSymbol<*>) {
+            return symbol.fir.typeParameters
+        }
 
-            if (fullyExpandedClass != null) { // TODO: Should not be null, move to resolver?
-                val expandedTypeRef = typeAliasFir.expandedTypeRef
+        require(symbol is FirTypeAliasSymbol)
 
-                fun checkTypeArguments(typeArgument: ConeTypeProjection) {
-                    when (typeArgument) {
-                        is ConeTypeParameterType -> typeAliasTypeParameters.removeIf { it.symbol == typeArgument.lookupTag.symbol }
-                        is ConeClassLikeType -> {
-                            for (subTypeArgument in typeArgument.typeArguments) {
-                                checkTypeArguments(subTypeArgument)
-                            }
-                        }
-                        is ConeKotlinTypeProjection -> checkTypeArguments(typeArgument.type)
-                        else -> {
+        val typeAliasFir = symbol.fir
+        val typeAliasTypeParameters = typeAliasFir.typeParameters.toMutableList()
+        val fullyExpandedClass = typeAliasFir.fullyExpandedClass(session)
+        val newTypeParameters = if (fullyExpandedClass != null) { // TODO: Should not be null, move to resolver?
+            val expandedTypeRef = typeAliasFir.expandedTypeRef
+
+            fun checkTypeArguments(typeArgument: ConeTypeProjection) {
+                when (typeArgument) {
+                    is ConeTypeParameterType -> typeAliasTypeParameters.removeIf { it.symbol == typeArgument.lookupTag.symbol }
+                    is ConeClassLikeType -> {
+                        for (subTypeArgument in typeArgument.typeArguments) {
+                            checkTypeArguments(subTypeArgument)
                         }
                     }
+                    is ConeKotlinTypeProjection -> checkTypeArguments(typeArgument.type)
+                    else -> {
+                    }
                 }
-
-                checkTypeArguments(expandedTypeRef.coneType)
-                newTypeParameters = fullyExpandedClass.typeParameters.toMutableList()
-            } else {
-                newTypeParameters = mutableListOf()
             }
 
-            for (typeParameter in typeAliasTypeParameters) {
-                newTypeParameters.add(typeParameter)
-            }
-            newTypeParameters
+            checkTypeArguments(expandedTypeRef.coneType)
+            fullyExpandedClass.typeParameters.toMutableList()
         } else {
-            (symbol as FirClassSymbol<*>).fir.typeParameters
+            mutableListOf()
         }
+
+        for (typeParameter in typeAliasTypeParameters) {
+            newTypeParameters.add(typeParameter)
+        }
+        return newTypeParameters
     }
 
     @OptIn(SymbolInternals::class)
@@ -306,8 +312,10 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
 
         for (index in reversedOuterClasses.indices) {
             currentClassLikeDeclaration = reversedOuterClasses[index]
-            val typeParameters = if (currentClassLikeDeclaration is FirTypeAlias) currentClassLikeDeclaration.typeParameters else
-                (currentClassLikeDeclaration as? FirClass)?.typeParameters
+            val typeParameters = when (currentClassLikeDeclaration) {
+                is FirTypeAlias -> currentClassLikeDeclaration.typeParameters
+                else -> (currentClassLikeDeclaration as? FirClass)?.typeParameters
+            }
             if (currentClassLikeDeclaration != null && typeParameters != null) {
                 for (typeParameter in typeParameters) {
                     val typeParameterSymbol = typeParameter.symbol
