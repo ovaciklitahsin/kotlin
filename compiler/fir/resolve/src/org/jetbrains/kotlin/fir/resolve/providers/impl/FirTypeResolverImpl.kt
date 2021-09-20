@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeUnexpectedTypeArgumentsError
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.*
-import org.jetbrains.kotlin.fir.resolve.calls.fullyExpandedClass
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeOuterClassArgumentsRequired
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedQualifierError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnsupportedDynamicType
@@ -159,12 +158,12 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             }
         }
 
-        if (symbol is FirClassLikeSymbol<*>) {
+        if (symbol is FirRegularClassSymbol) {
             val isPossibleBareType = areBareTypesAllowed && allTypeArguments.isEmpty()
             if (!isPossibleBareType) {
                 val actualSubstitutor = substitutor ?: ConeSubstitutor.Empty
 
-                val originalTypeParameters = collectTypeParameters(symbol)
+                val originalTypeParameters = symbol.fir.typeParameters
 
                 val (typeParametersAlignedToQualifierParts, outerDeclarations) = getClassesAlignedToQualifierParts(
                     symbol,
@@ -241,45 +240,6 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                     lookupTag.bindSymbolToLookupTag(session, symbol)
                 }
             }
-    }
-
-    private fun collectTypeParameters(symbol: FirClassLikeSymbol<*>): List<FirTypeParameterRef> {
-        if (symbol is FirClassSymbol<*>) {
-            return symbol.fir.typeParameters
-        }
-
-        require(symbol is FirTypeAliasSymbol)
-
-        val typeAliasFir = symbol.fir
-        val typeAliasTypeParameters = typeAliasFir.typeParameters.toMutableList()
-        val fullyExpandedClass = typeAliasFir.fullyExpandedClass(session)
-        val newTypeParameters = if (fullyExpandedClass != null) { // TODO: Should not be null, move to resolver?
-            val expandedTypeRef = typeAliasFir.expandedTypeRef
-
-            fun checkTypeArguments(typeArgument: ConeTypeProjection) {
-                when (typeArgument) {
-                    is ConeTypeParameterType -> typeAliasTypeParameters.removeIf { it.symbol == typeArgument.lookupTag.symbol }
-                    is ConeClassLikeType -> {
-                        for (subTypeArgument in typeArgument.typeArguments) {
-                            checkTypeArguments(subTypeArgument)
-                        }
-                    }
-                    is ConeKotlinTypeProjection -> checkTypeArguments(typeArgument.type)
-                    else -> {
-                    }
-                }
-            }
-
-            checkTypeArguments(expandedTypeRef.coneType)
-            fullyExpandedClass.typeParameters.toMutableList()
-        } else {
-            mutableListOf()
-        }
-
-        for (typeParameter in typeAliasTypeParameters) {
-            newTypeParameters.add(typeParameter)
-        }
-        return newTypeParameters
     }
 
     @OptIn(SymbolInternals::class)
