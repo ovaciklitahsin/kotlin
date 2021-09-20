@@ -410,20 +410,18 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
     }
 
     override fun transformRegularClass(regularClass: FirRegularClass, data: ResolutionMode): FirStatement {
-        context.withContainingClass(regularClass) {
-            if (regularClass.isLocal && regularClass !in context.targetedLocalClasses) {
-                return regularClass.runAllPhasesForLocalClass(
-                    transformer,
-                    components,
-                    data,
-                    transformer.firTowerDataContextCollector,
-                    transformer.firProviderInterceptor
-                )
-            }
-
-            doTransformTypeParameters(regularClass)
-            return doTransformRegularClass(regularClass, data)
+        if (regularClass.isLocal && regularClass !in context.targetedLocalClasses) {
+            return regularClass.runAllPhasesForLocalClass(
+                transformer,
+                components,
+                data,
+                transformer.firTowerDataContextCollector,
+                transformer.firProviderInterceptor
+            )
         }
+
+        doTransformTypeParameters(regularClass)
+        return doTransformRegularClass(regularClass, data)
     }
 
     override fun transformTypeAlias(typeAlias: FirTypeAlias, data: ResolutionMode): FirTypeAlias {

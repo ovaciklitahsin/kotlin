@@ -89,11 +89,6 @@ class BodyResolveContext(
 
     val anonymousFunctionsAnalyzedInDependentContext: MutableSet<FirFunctionSymbol<*>> = mutableSetOf()
 
-    var containingClassDeclarations: ArrayDeque<FirRegularClass> = ArrayDeque()
-
-    val topClassDeclaration: FirRegularClass?
-        get() = containingClassDeclarations.lastOrNull()
-
     private inline fun <T> withNewTowerDataForClassParts(newContexts: FirTowerDataContextsForClassParts, f: () -> T): T {
         val old = towerDataContextsForClassParts
         towerDataContextsForClassParts = newContexts
@@ -133,15 +128,6 @@ class BodyResolveContext(
         } finally {
             containers.removeLast()
             containingClass = oldContainingClass
-        }
-    }
-
-    inline fun <T> withContainingClass(declaration: FirRegularClass, f: () -> T): T {
-        containingClassDeclarations.add(declaration)
-        return try {
-            f()
-        } finally {
-            containingClassDeclarations.removeLast()
         }
     }
 

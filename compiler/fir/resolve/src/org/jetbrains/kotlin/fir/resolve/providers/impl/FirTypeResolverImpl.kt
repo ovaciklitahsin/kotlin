@@ -121,7 +121,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         symbol: FirBasedSymbol<*>?,
         substitutor: ConeSubstitutor?,
         areBareTypesAllowed: Boolean,
-        topDeclaration: FirRegularClass?,
+        topDeclaration: FirDeclaration?,
         isOperandOfIsOperator: Boolean
     ): ConeKotlinType {
         if (symbol == null || symbol !is FirClassifierSymbol<*>) {
@@ -196,7 +196,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                     }
 
                     if (typeParameter !is FirOuterClassTypeParameterRef ||
-                        isValidTypeParameterFromOuterClass(typeParameter.symbol, topDeclaration, session)
+                        isValidTypeParameterFromOuterDeclaration(typeParameter.symbol, topDeclaration, session)
                     ) {
                         val type = ConeTypeParameterTypeImpl(ConeTypeParameterLookupTag(typeParameter.symbol), isNullable = false)
                         val substituted = actualSubstitutor.substituteOrNull(type)
