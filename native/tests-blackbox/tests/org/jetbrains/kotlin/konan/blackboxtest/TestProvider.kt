@@ -215,8 +215,9 @@ private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, 
         val trimmedLine = line.trim()
         when {
             inMultilineComment -> inMultilineComment = !trimmedLine.endsWith("*/")
-            trimmedLine.isBlank() -> Unit
             trimmedLine.startsWith("/*") -> inMultilineComment = true
+            trimmedLine.isEmpty() -> Unit
+            trimmedLine.startsWith("//") -> Unit
             else -> {
                 // First meaningful line.
                 if (trimmedLine.startsWith("package ")) {

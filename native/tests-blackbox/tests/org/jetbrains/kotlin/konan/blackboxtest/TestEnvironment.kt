@@ -41,7 +41,7 @@ internal class GlobalTestEnvironment(
         }
 
         private val defaultTestMode: TestMode = run {
-            val testModeName = System.getProperty(KOTLIN_NATIVE_TEST_MODE) ?: return@run TestMode.MULTIPLE_MODULES
+            val testModeName = System.getProperty(KOTLIN_NATIVE_TEST_MODE) ?: return@run TestMode.WITH_MODULES
 
             TestMode.values().firstOrNull { it.name == testModeName } ?: fail {
                 buildString {
@@ -70,15 +70,14 @@ internal class TestRoots(
 )
 
 internal enum class TestMode(val description: String) {
-    SINGLE_MODULE_NO_KLIBS(
-        description = "Compile all test files as a single module without producing intermediate KLIB."
+    ONE_STAGE(
+        description = "Compile test files altogether without producing intermediate KLIBs."
     ),
-    SINGLE_MODULE(
-        description = "Compile all test files as a single module with producing intermediate KLIB."
+    TWO_STAGE(
+        description = "Compile test files altogether and produce an intermediate KLIB. Then produce a program from the KLIB using -Xinclude."
     ),
-    MULTIPLE_MODULES(
+    WITH_MODULES(
         description = "Compile each test file as one or many modules (depending on MODULE directives declared in the file)." +
-                " Then link KLIBs into the single executable file."
+                " Then link the KLIBs into the single executable file."
     )
 }
-
