@@ -285,6 +285,27 @@ fun loadIr(
     val signaturer = IdSignatureDescriptor(JsManglerDesc)
     val symbolTable = SymbolTable(signaturer, irFactory)
 
+    val moduleFragmentToUniqueName = mutableMapOf<IrModuleFragment, String>()
+
+    fun deserializeDependencies(
+        dependencies: List<KotlinResolvedLibrary>,
+        irLinker: JsIrLinker,
+        mainModuleLib: KotlinLibrary?
+    ): List<IrModuleFragment> {
+        return sortDependencies(dependencies, depsDescriptors.descriptors).map { klib ->
+            val strategy = when {
+                mainModuleLib != null && klib == mainModuleLib -> DeserializationStrategy.ALL
+                else -> DeserializationStrategy.EXPLICITLY_EXPORTED
+            }
+            irLinker.deserializeIrModuleHeader(depsDescriptors.getModuleDescriptor(klib), klib, deserializationStrategy = { strategy })
+                .also { moduleFragment ->
+                    klib.manifestProperties.getProperty(KLIB_PROPERTY_JS_OUTPUT_NAME)?.let {
+                        moduleFragmentToUniqueName[moduleFragment] = it
+                    }
+                }
+        }
+    }
+
     when (mainModule) {
         is MainModule.SourceFiles -> {
             val psi2IrContext = preparePsi2Ir(depsDescriptors, errorPolicy, symbolTable)
@@ -292,7 +313,6 @@ fun loadIr(
             val feContext = psi2IrContext.run {
                 JsIrLinker.JsFePluginContext(moduleDescriptor, symbolTable, typeTranslator, irBuiltIns)
             }
-            val moduleFragmentToUniqueName = mutableMapOf<IrModuleFragment, String>()
             val irLinker =
                 JsIrLinker(
                     psi2IrContext.moduleDescriptor,
@@ -303,18 +323,7 @@ fun loadIr(
                     null,
                     depsDescriptors.loweredIcData
                 )
-            val deserializedModuleFragments = sortDependencies(allDependencies, depsDescriptors.descriptors).map { klib ->
-                irLinker.deserializeIrModuleHeader(
-                    depsDescriptors.getModuleDescriptor(klib),
-                    klib,
-                    deserializationStrategy = { DeserializationStrategy.EXPLICITLY_EXPORTED }
-                ).also { moduleFragment ->
-                    klib.manifestProperties.getProperty(KLIB_PROPERTY_JS_OUTPUT_NAME)?.let {
-                        moduleFragmentToUniqueName[moduleFragment] = it
-                    }
-                }
-            }
-
+            val deserializedModuleFragments = deserializeDependencies(allDependencies, irLinker, null)
             val moduleFragment = psi2IrContext.generateModuleFragmentWithPlugins(project, mainModule.files, irLinker, messageLogger)
             symbolTable.noUnboundLeft("Unbound symbols left after linker")
 
@@ -373,27 +382,11 @@ fun loadIr(
                     loweredIcData
                 )
 
-            val moduleFragmentToUniqueName = mutableMapOf<IrModuleFragment, String>()
-
             val reachableDependencies = depsDescriptors.allResolvedDependencies.filterRoots {
                 it.library.libraryFile.canonicalPath == mainPath
             }
 
-            val deserializedModuleFragments =
-                sortDependencies(reachableDependencies.getFullResolvedList(), depsDescriptors.descriptors).map { klib ->
-                    val strategy =
-                        if (klib == mainModuleLib)
-                            DeserializationStrategy.ALL
-                        else
-                            DeserializationStrategy.EXPLICITLY_EXPORTED
-
-                    irLinker.deserializeIrModuleHeader(depsDescriptors.getModuleDescriptor(klib), klib, { strategy })
-                        .also { moduleFragment ->
-                            klib.manifestProperties.getProperty(KLIB_PROPERTY_JS_OUTPUT_NAME)?.let {
-                                moduleFragmentToUniqueName[moduleFragment] = it
-                            }
-                        }
-                }
+            val deserializedModuleFragments = deserializeDependencies(reachableDependencies.getFullResolvedList(), irLinker, mainModuleLib)
 
             val moduleFragment = deserializedModuleFragments.last()
 
