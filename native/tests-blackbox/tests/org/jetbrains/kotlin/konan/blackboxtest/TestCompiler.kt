@@ -191,7 +191,8 @@ private fun TestCase.applyCommonArgs(
         "-target", environment.globalEnvironment.target.name,
         "-repo", environment.globalEnvironment.kotlinNativeHome.resolve("klib").path,
         "-output", output.path,
-        "-Xskip-prerelease-check"
+        "-Xskip-prerelease-check",
+        "-Xverify-ir"
     )
     addMultiple(dependencyLibraries) { library -> listOf("-l", library.path) }
     addMultiple(friendLibraries) { library -> listOf("-friend-modules", library.path) }
