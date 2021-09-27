@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
-import org.jetbrains.kotlin.jvm.compiler.AbstractWriteSignatureTest.Companion.matchExact
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
@@ -53,11 +52,11 @@ private class TestOutput(
         stdOut.lines().forEach { line ->
             when {
                 expectStatusLine -> {
-                    val matcher = GTEST_STATUS_LINE_REGEX.matchExact(line)
+                    val matcher = GTEST_STATUS_LINE_REGEX.matchEntire(line)
                     if (matcher != null) {
                         // Read the line with test status.
-                        val testStatus = matcher.group(1)
-                        val testName = matcher.group(2)
+                        val testStatus = matcher.groupValues[1]
+                        val testName = matcher.groupValues[2]
                         testStatuses.getOrPut(testStatus) { mutableSetOf() } += testName
                         expectStatusLine = false
                     } else {
