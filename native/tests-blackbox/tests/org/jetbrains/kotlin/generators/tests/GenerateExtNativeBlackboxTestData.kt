@@ -484,6 +484,7 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
     }
 
     companion object {
-        private val GENERATOR_TOOL_NAME = "${::generateExtNativeBlackboxTestData.javaClass.`package`.name}.${::generateExtNativeBlackboxTestData.name}()"
+        private val GENERATOR_TOOL_NAME =
+            "${::generateExtNativeBlackboxTestData.javaClass.`package`.name}.${::generateExtNativeBlackboxTestData.name}()"
     }
 }
