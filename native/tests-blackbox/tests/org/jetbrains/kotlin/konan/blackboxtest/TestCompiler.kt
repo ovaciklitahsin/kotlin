@@ -57,7 +57,10 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
                     environment = environment
                 )
             }
-            TestMode.WITH_MODULES -> TODO("unimplemented yet")
+            TestMode.WITH_MODULES -> {
+
+                TODO("unimplemented yet")
+            }
         }
 
         TestBinary(executableFile)
@@ -66,21 +69,18 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
 
 private fun inventStableExecutableFileName(testCase: TestCase, environment: TestEnvironment): String {
     val testDataFilesCount: Int
-    val firstTestDataFiles: String
+    val firstTestDataFile: String
     val hash: Int
 
     when (testCase) {
         is TestCase.Simple -> {
             testDataFilesCount = 1
-            firstTestDataFiles = testCase.testDataFile.nameWithoutExtension
+            firstTestDataFile = testCase.testDataFile.nameWithoutExtension
             hash = testCase.testDataFile.hash
         }
         is TestCase.Composite -> {
             testDataFilesCount = testCase.testDataFileToPackageNameMapping.size
-            firstTestDataFiles = testCase.testDataFileToPackageNameMapping.keys
-                .sorted()
-                .take(3)
-                .joinToString("_") { it.nameWithoutExtension }
+            firstTestDataFile = testCase.testDataFileToPackageNameMapping.keys.minOrNull()!!.nameWithoutExtension
             hash = testCase.testDataFileToPackageNameMapping.keys.fold(0) { acc, testDataFile -> acc + testDataFile.hash }
         }
     }
@@ -88,9 +88,9 @@ private fun inventStableExecutableFileName(testCase: TestCase, environment: Test
     return buildString {
         val prefix = testDataFilesCount.toString()
         repeat(3 - prefix.length) { append('0') }
-        append(prefix).append('-')
-        append(firstTestDataFiles).append('-')
-        append(hash.toString(16))
+        append(prefix).append('_')
+        append(firstTestDataFile).append('_')
+        append(hash.toUInt().toString(16).padStart(8, '0'))
         append('.').append(environment.globalEnvironment.target.family.exeSuffix)
     }
 }
