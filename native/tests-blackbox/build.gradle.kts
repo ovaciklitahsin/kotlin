@@ -45,6 +45,9 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
 projectTest(jUnit5Enabled = true) {
     dependsOn(":kotlin-native:dist", ":kotlin-native:distPlatformLibs")
     workingDir = rootDir
+    maxHeapSize = "6G"
+    jvmArgs("-XX:TieredStopAtLevel=1")
+
     systemProperty("kotlin.native.home", kotlinNativeHome.absolutePath)
     systemProperty("kotlin.internal.native.classpath", kotlinNativeCompilerClassPath.files.joinToString(";"))
     findProperty("kotlin.internal.native.test.mode")?.let { testModeName ->
