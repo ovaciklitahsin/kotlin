@@ -285,78 +285,26 @@ fun loadIr(
     val signaturer = IdSignatureDescriptor(JsManglerDesc)
     val symbolTable = SymbolTable(signaturer, irFactory)
 
-    val moduleFragmentToUniqueName = mutableMapOf<IrModuleFragment, String>()
-
-    fun deserializeDependencies(
-        dependencies: List<KotlinResolvedLibrary>,
-        irLinker: JsIrLinker,
-        mainModuleLib: KotlinLibrary?
-    ): List<IrModuleFragment> {
-        return sortDependencies(dependencies, depsDescriptors.descriptors).map { klib ->
-            val strategy = when {
-                mainModuleLib != null && klib == mainModuleLib -> DeserializationStrategy.ALL
-                else -> DeserializationStrategy.EXPLICITLY_EXPORTED
-            }
-            irLinker.deserializeIrModuleHeader(depsDescriptors.getModuleDescriptor(klib), klib, deserializationStrategy = { strategy })
-                .also { moduleFragment ->
-                    klib.manifestProperties.getProperty(KLIB_PROPERTY_JS_OUTPUT_NAME)?.let {
-                        moduleFragmentToUniqueName[moduleFragment] = it
-                    }
-                }
-        }
-    }
-
     when (mainModule) {
         is MainModule.SourceFiles -> {
             val psi2IrContext = preparePsi2Ir(depsDescriptors, errorPolicy, symbolTable)
-            val irBuiltIns = psi2IrContext.irBuiltIns
-            val feContext = psi2IrContext.run {
-                JsIrLinker.JsFePluginContext(moduleDescriptor, symbolTable, typeTranslator, irBuiltIns)
-            }
-            val irLinker =
-                JsIrLinker(
-                    psi2IrContext.moduleDescriptor,
-                    messageLogger,
-                    irBuiltIns,
-                    symbolTable,
-                    feContext,
-                    null,
-                    depsDescriptors.loweredIcData
-                )
-            val deserializedModuleFragments = deserializeDependencies(allDependencies, irLinker, null)
-            val moduleFragment = psi2IrContext.generateModuleFragmentWithPlugins(project, mainModule.files, irLinker, messageLogger)
-            symbolTable.noUnboundLeft("Unbound symbols left after linker")
 
-            // TODO: not sure whether this check should be enabled by default. Add configuration key for it.
-            val mangleChecker = ManglerChecker(JsManglerIr, Ir2DescriptorManglerAdapter(JsManglerDesc))
-            if (verifySignatures) {
-                moduleFragment.acceptVoid(mangleChecker)
-            }
-
-            if (configuration.getBoolean(JSConfigurationKeys.FAKE_OVERRIDE_VALIDATOR)) {
-                val fakeOverrideChecker = FakeOverrideChecker(JsManglerIr, JsManglerDesc)
-                irLinker.modules.forEach { fakeOverrideChecker.check(it) }
-            }
-
-            if (verifySignatures) {
-                irBuiltIns.knownBuiltins.forEach { it.acceptVoid(mangleChecker) }
-            }
-
-            return IrModuleInfo(moduleFragment, deserializedModuleFragments, irBuiltIns, symbolTable, irLinker, moduleFragmentToUniqueName,
-                                depsDescriptors.modulesWithCaches(deserializedModuleFragments))
+            return getIrModuleInfoForSourceFiles(
+                psi2IrContext,
+                project,
+                configuration,
+                mainModule.files,
+                sortDependencies(allDependencies, depsDescriptors.descriptors),
+                depsDescriptors.loweredIcData,
+                symbolTable,
+                messageLogger,
+                verifySignatures,
+                { depsDescriptors.modulesWithCaches(it) },
+                { depsDescriptors.getModuleDescriptor(it) },
+            )
         }
         is MainModule.Klib -> {
-            val mainPath = File(mainModule.libPath).canonicalPath
-            val mainModuleLib =
-                depsDescriptors.allDependencies.find { it.library.libraryFile.canonicalPath == mainPath }?.library
-                    ?: error("No module with ${mainModule.libPath} found")
-            val moduleDescriptor = depsDescriptors.getModuleDescriptor(mainModuleLib)
-            val typeTranslator =
-                TypeTranslatorImpl(symbolTable, depsDescriptors.compilerConfiguration.languageVersionSettings, moduleDescriptor)
-            val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
-
-            // TODO is this a typo?
-            val loweredIcData = if (!depsDescriptors.icUseStdlibCache && !depsDescriptors.icUseStdlibCache) emptyMap() else {
+            val loweredIcData = if (!depsDescriptors.icUseGlobalSignatures && !depsDescriptors.icUseStdlibCache) emptyMap() else {
                 val result = mutableMapOf<ModuleDescriptor, SerializedIcData>()
 
                 for (lib in depsDescriptors.moduleDependencies.keys) {
@@ -371,33 +319,135 @@ fun loadIr(
                 result
             }
 
-            val irLinker =
-                JsIrLinker(
-                    null,
-                    messageLogger,
-                    irBuiltIns,
-                    symbolTable,
-                    null,
-                    null,
-                    loweredIcData
-                )
-
-            val reachableDependencies = depsDescriptors.allResolvedDependencies.filterRoots {
-                it.library.libraryFile.canonicalPath == mainPath
-            }
-
-            val deserializedModuleFragments = deserializeDependencies(reachableDependencies.getFullResolvedList(), irLinker, mainModuleLib)
-
-            val moduleFragment = deserializedModuleFragments.last()
-
-            irLinker.init(null, emptyList())
-            ExternalDependenciesGenerator(symbolTable, listOf(irLinker)).generateUnboundSymbolsAsDependencies()
-            irLinker.postProcess()
-
-            return IrModuleInfo(moduleFragment, deserializedModuleFragments, irBuiltIns, symbolTable, irLinker, moduleFragmentToUniqueName,
-                                depsDescriptors.modulesWithCaches(deserializedModuleFragments))
+            val mainPath = File(mainModule.libPath).canonicalPath
+            val mainResolvedLibrary = allDependencies.find { it.library.libraryFile.canonicalPath == mainPath }
+                ?: error("No module with ${mainModule.libPath} found")
+            val mainModuleLib = mainResolvedLibrary.library
+            val moduleDescriptor = depsDescriptors.getModuleDescriptor(mainModuleLib)
+            val sortedDependencies = sortDependencies(listOf(mainResolvedLibrary), depsDescriptors.descriptors)
+            return getIrModuleInfoForKlib(
+                moduleDescriptor,
+                sortedDependencies,
+                configuration,
+                symbolTable,
+                messageLogger,
+                loweredIcData,
+                { depsDescriptors.modulesWithCaches(it) },
+                { depsDescriptors.getModuleDescriptor(it) },
+            )
         }
     }
+}
+
+@OptIn(ObsoleteDescriptorBasedAPI::class)
+private fun getIrModuleInfoForKlib(
+    moduleDescriptor: ModuleDescriptorImpl,
+    sortedDependencies: Collection<KotlinLibrary>,
+    configuration: CompilerConfiguration,
+    symbolTable: SymbolTable,
+    messageLogger: IrMessageLogger,
+    loweredIcData: Map<ModuleDescriptor, SerializedIcData>,
+    filterModulesWithCache: (Iterable<IrModuleFragment>) -> Set<IrModuleFragment>,
+    mapping: (KotlinLibrary) -> ModuleDescriptor,
+): IrModuleInfo {
+    val mainModuleLib = sortedDependencies.last()
+    val typeTranslator = TypeTranslatorImpl(symbolTable, configuration.languageVersionSettings, moduleDescriptor)
+    val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
+
+    val irLinker =
+        JsIrLinker(
+            null,
+            messageLogger,
+            irBuiltIns,
+            symbolTable,
+            null,
+            null,
+            loweredIcData
+        )
+
+    val deserializedModuleFragmentsToLib = deserializeDependencies(sortedDependencies, irLinker, mainModuleLib, mapping)
+    val deserializedModuleFragments = deserializedModuleFragmentsToLib.keys.toList()
+
+    val moduleFragment = deserializedModuleFragments.last()
+
+    irLinker.init(null, emptyList())
+    ExternalDependenciesGenerator(symbolTable, listOf(irLinker)).generateUnboundSymbolsAsDependencies()
+    irLinker.postProcess()
+
+    return IrModuleInfo(
+        moduleFragment, deserializedModuleFragments, irBuiltIns, symbolTable, irLinker,
+        deserializedModuleFragmentsToLib.getUniqueNameForEachFragment(),
+        filterModulesWithCache(deserializedModuleFragments)
+    )
+}
+
+private fun getIrModuleInfoForSourceFiles(
+    psi2IrContext: GeneratorContext,
+    project: Project,
+    configuration: CompilerConfiguration,
+    files: List<KtFile>,
+    allSortedDependencies: Collection<KotlinLibrary>,
+    loweredIcData: Map<ModuleDescriptor, SerializedIcData>,
+    symbolTable: SymbolTable,
+    messageLogger: IrMessageLogger,
+    verifySignatures: Boolean,
+    filterModulesWithCache: (Iterable<IrModuleFragment>) -> Set<IrModuleFragment>,
+    mapping: (KotlinLibrary) -> ModuleDescriptor
+): IrModuleInfo {
+    val irBuiltIns = psi2IrContext.irBuiltIns
+    val feContext = psi2IrContext.run {
+        JsIrLinker.JsFePluginContext(moduleDescriptor, symbolTable, typeTranslator, irBuiltIns)
+    }
+    val irLinker = JsIrLinker(psi2IrContext.moduleDescriptor, messageLogger, irBuiltIns, symbolTable, feContext, null, loweredIcData)
+    val deserializedModuleFragmentsToLib = deserializeDependencies(allSortedDependencies, irLinker, null, mapping)
+    val deserializedModuleFragments = deserializedModuleFragmentsToLib.keys.toList()
+
+    val moduleFragment = psi2IrContext.generateModuleFragmentWithPlugins(project, files, irLinker, messageLogger)
+    symbolTable.noUnboundLeft("Unbound symbols left after linker")
+
+    // TODO: not sure whether this check should be enabled by default. Add configuration key for it.
+    val mangleChecker = ManglerChecker(JsManglerIr, Ir2DescriptorManglerAdapter(JsManglerDesc))
+    if (verifySignatures) {
+        moduleFragment.acceptVoid(mangleChecker)
+    }
+
+    if (configuration.getBoolean(JSConfigurationKeys.FAKE_OVERRIDE_VALIDATOR)) {
+        val fakeOverrideChecker = FakeOverrideChecker(JsManglerIr, JsManglerDesc)
+        irLinker.modules.forEach { fakeOverrideChecker.check(it) }
+    }
+
+    if (verifySignatures) {
+        irBuiltIns.knownBuiltins.forEach { it.acceptVoid(mangleChecker) }
+    }
+
+    return IrModuleInfo(
+        moduleFragment, deserializedModuleFragments, irBuiltIns, symbolTable, irLinker,
+        deserializedModuleFragmentsToLib.getUniqueNameForEachFragment(),
+        filterModulesWithCache(deserializedModuleFragments)
+    )
+}
+
+fun deserializeDependencies(
+    sortedDependencies: Collection<KotlinLibrary>,
+    irLinker: JsIrLinker,
+    mainModuleLib: KotlinLibrary?,
+    mapping: (KotlinLibrary) -> ModuleDescriptor
+): Map<IrModuleFragment, KotlinLibrary> {
+    return sortedDependencies.associateBy { klib ->
+        val strategy = when {
+            mainModuleLib != null && klib == mainModuleLib -> DeserializationStrategy.ALL
+            else -> DeserializationStrategy.EXPLICITLY_EXPORTED
+        }
+        irLinker.deserializeIrModuleHeader(mapping(klib), klib, deserializationStrategy = { strategy })
+    }
+}
+
+fun Map<IrModuleFragment, KotlinLibrary>.getUniqueNameForEachFragment(): Map<IrModuleFragment, String> {
+    return this.entries.mapNotNull { (moduleFragment, klib) ->
+        klib.manifestProperties.getProperty(KLIB_PROPERTY_JS_OUTPUT_NAME)?.let {
+            moduleFragment to it
+        }
+    }.toMap()
 }
 
 fun prepareAnalyzedSourceModule(
