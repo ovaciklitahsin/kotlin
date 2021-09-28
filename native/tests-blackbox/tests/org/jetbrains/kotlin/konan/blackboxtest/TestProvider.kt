@@ -85,14 +85,22 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
     val effectivePackageName = computePackageName(testDataDir = environment.testRoots.baseDir, testDataFile = testDataFile)
 
+    val testModules = mutableMapOf<String, TestModule>()
     val testFiles = mutableListOf<TestFile>()
-    var currentTestModule = TestModule(name = DEFAULT_MODULE_NAME, dependencySymbols = emptySet(), friendSymbols = emptySet())
 
+    var currentTestModule: TestModule? = null
     var currentTestFileName: String? = null
     val currentTestFileContents = StringBuilder()
 
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
     var lastParsedDirective: Directive? = null
+
+    fun switchTestModule(newTestModule: TestModule): TestModule {
+        // Don't register new test module if there is another one with the same name.
+        val testModule = testModules.getOrPut(newTestModule.name) { newTestModule }
+        currentTestModule = testModule
+        return testModule
+    }
 
     fun beginTestFile(fileName: String) {
         assertEquals(null, currentTestFileName)
@@ -106,10 +114,12 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
         if (needToFinish) {
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
+            val testModule = currentTestModule ?: switchTestModule(TestModule.newDefaultModule())
+
             testFiles += TestFile(
                 location = generatedSourcesDir.resolve(fileName),
                 contents = currentTestFileContents.toString(),
-                module = currentTestModule
+                module = testModule
             )
 
             currentTestFileContents.clear()
@@ -147,7 +157,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
                         when (directive) {
                             TestDirectives.MODULE -> {
                                 finishTestFile(forceFinish = false, lineNumber)
-                                currentTestModule = parseModule(parsedDirective, location)
+                                switchTestModule(parseModule(parsedDirective, location))
                             }
                             else -> {
                                 assertNotEquals(TestDirectives.FILE, lastParsedDirective) {

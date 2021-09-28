@@ -134,12 +134,20 @@ internal fun parseModule(parsedDirective: RegisteredDirectivesParser.ParsedDirec
         )
     }
 
-    return module ?: fail {
+    module ?: fail {
         """
             $location: Invalid contents of ${parsedDirective.directive} directive: ${parsedDirective.values}
             ${parsedDirective.directive.description}
         """.trimIndent()
     }
+
+    if (module.name == DEFAULT_MODULE_NAME) {
+        assertTrue(module.dependencySymbols.isEmpty() && module.friendSymbols.isEmpty()) {
+            "$location: \"$DEFAULT_MODULE_NAME\" module may not have explicitly declared dependencies: ${parsedDirective.values}"
+        }
+    }
+
+    return module
 }
 
 private val TEST_MODULE_REGEX = Regex("^([a-zA-Z0-9_]+)(\\(([a-zA-Z0-9_,]*)\\)(\\(([a-zA-Z0-9_,]*)\\))?)?$")

@@ -32,6 +32,8 @@ internal class TestModule(
     val files = mutableListOf<TestFile>()
 
     companion object {
+        fun newDefaultModule() = TestModule(DEFAULT_MODULE_NAME, emptySet(), emptySet())
+
         fun Collection<TestModule>.initializeModules() {
             val mapping: Map</* module name */ String, TestModule> = toSet()
                 .groupingBy { module -> module.name }
