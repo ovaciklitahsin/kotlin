@@ -57,6 +57,30 @@ public class NativeBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
         }
 
         @Test
+        @TestMetadata("regular_multimodule_implicit_first_module_with_header_comment.kt")
+        public void testRegular_multimodule_implicit_first_module_with_header_comment() throws Exception {
+            runTest("native/tests-blackbox/testData/samples/regular_multimodule_implicit_first_module_with_header_comment.kt");
+        }
+
+        @Test
+        @TestMetadata("regular_multimodule_implicit_first_module_with_header_statement.kt")
+        public void testRegular_multimodule_implicit_first_module_with_header_statement() throws Exception {
+            runTest("native/tests-blackbox/testData/samples/regular_multimodule_implicit_first_module_with_header_statement.kt");
+        }
+
+        @Test
+        @TestMetadata("regular_multimodule_with_header_comment.kt")
+        public void testRegular_multimodule_with_header_comment() throws Exception {
+            runTest("native/tests-blackbox/testData/samples/regular_multimodule_with_header_comment.kt");
+        }
+
+        @Test
+        @TestMetadata("regular_multimodule_with_header_statement.kt")
+        public void testRegular_multimodule_with_header_statement() throws Exception {
+            runTest("native/tests-blackbox/testData/samples/regular_multimodule_with_header_statement.kt");
+        }
+
+        @Test
         @TestMetadata("regular_simple.kt")
         public void testRegular_simple() throws Exception {
             runTest("native/tests-blackbox/testData/samples/regular_simple.kt");

@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.konan.blackboxtest
 import org.jetbrains.kotlin.konan.blackboxtest.TestModule.Companion.initializeModules
 import org.jetbrains.kotlin.test.directives.model.Directive
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertNotEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
@@ -94,22 +95,32 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     var lastParsedDirective: Directive? = null
 
     fun beginTestFile(fileName: String, lineNumber: Int) {
+        assertEquals(null, currentTestFileName)
         currentTestFileName = fileName
-        repeat(lineNumber) { currentTestFileContents.appendLine() } // Preserve line numbers as in the original test data file.
+
+        if (currentTestFileContents.isEmpty()) {
+            repeat(lineNumber) { currentTestFileContents.appendLine() } // Preserve line numbers as in the original test data file.
+        } else {
+            // Just continuing unfinished test file.
+        }
     }
 
-    fun finishTestFile() {
-        if (currentTestFileName != null || currentTestFileContents.isNotBlank()) {
+    fun finishTestFile(forceFinish: Boolean) {
+        val needToFinish = forceFinish
+                || currentTestFileName != null
+                || (currentTestFileName == null /*&& testFiles.isEmpty()*/ && currentTestFileContents.hasAnythingButComments())
+
+        if (needToFinish) {
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
             testFiles += TestFile(
                 location = generatedSourcesDir.resolve(fileName),
                 contents = currentTestFileContents.toString(),
                 module = currentTestModule
             )
-        }
 
-        currentTestFileContents.clear()
-        currentTestFileName = null
+            currentTestFileContents.clear()
+            currentTestFileName = null
+        }
     }
 
     testDataFile.readLines().forEachIndexed { lineNumber, line ->
@@ -130,7 +141,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
                 when (val directive = parsedDirective.directive) {
                     TestDirectives.FILE -> {
                         val newFileName = parseFileName(parsedDirective, location)
-                        finishTestFile()
+                        finishTestFile(forceFinish = false)
                         beginTestFile(newFileName, lineNumber)
                     }
                     else -> {
@@ -140,7 +151,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
                         when (directive) {
                             TestDirectives.MODULE -> {
-                                finishTestFile()
+                                finishTestFile(forceFinish = false)
                                 currentTestModule = parseModule(parsedDirective, location)
                             }
                             else -> {
@@ -171,7 +182,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
         currentTestFileContents.appendLine(line)
     }
 
-    finishTestFile()
+    finishTestFile(forceFinish = true)
 
     // Initialize module dependencies.
     testFiles.map { it.module }.initializeModules()
@@ -204,33 +215,27 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     }
 }
 
+private fun CharSequence.hasAnythingButComments(): Boolean {
+    var result = false
+    runForFirstMeaningfulStatement { _, _ -> result = true }
+    return result
+}
+
 private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, testDataFile: File): TestFile {
     var existingPackageDeclarationLine: String? = null
     var existingPackageDeclarationLineNumber: Int? = null
 
-    var inMultilineComment = false
-
-    val lines = testFile.contents.lines()
-    for ((lineNumber, line) in lines.withIndex()) {
+    testFile.contents.runForFirstMeaningfulStatement { lineNumber, line ->
+        // First meaningful line.
         val trimmedLine = line.trim()
-        when {
-            inMultilineComment -> inMultilineComment = !trimmedLine.endsWith("*/")
-            trimmedLine.startsWith("/*") -> inMultilineComment = true
-            trimmedLine.isEmpty() -> Unit
-            trimmedLine.startsWith("//") -> Unit
-            else -> {
-                // First meaningful line.
-                if (trimmedLine.startsWith("package ")) {
-                    existingPackageDeclarationLine = trimmedLine
-                    existingPackageDeclarationLineNumber = lineNumber
-                }
-                break
-            }
+        if (trimmedLine.startsWith("package ")) {
+            existingPackageDeclarationLine = trimmedLine
+            existingPackageDeclarationLineNumber = lineNumber
         }
     }
 
     return if (existingPackageDeclarationLine != null) {
-        val existingPackageName = existingPackageDeclarationLine.substringAfter("package ").trimStart()
+        val existingPackageName = existingPackageDeclarationLine!!.substringAfter("package ").trimStart()
         assertTrue(
             existingPackageName == packageName
                     || (existingPackageName.length > packageName.length
@@ -244,4 +249,22 @@ private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, 
         testFile
     } else
         testFile.copy(contents = "package $packageName ${testFile.contents}")
+}
+
+private inline fun CharSequence.runForFirstMeaningfulStatement(action: (lineNumber: Int, line: String) -> Unit) {
+    var inMultilineComment = false
+
+    for ((lineNumber, line) in lines().withIndex()) {
+        val trimmedLine = line.trim()
+        when {
+            inMultilineComment -> inMultilineComment = !trimmedLine.endsWith("*/")
+            trimmedLine.startsWith("/*") -> inMultilineComment = true
+            trimmedLine.isEmpty() -> Unit
+            trimmedLine.startsWith("//") -> Unit
+            else -> {
+                action(lineNumber, line)
+                break
+            }
+        }
+    }
 }
