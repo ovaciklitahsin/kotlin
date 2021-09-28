@@ -189,6 +189,11 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
     finishTestFile(forceFinish = true, lineNumber = /* does not matter anymore */ 0)
 
+    val duplicatedTestFiles = testFiles.groupingBy { it.location }.eachCount().filterValues { it > 1 }.keys
+    assertTrue(duplicatedTestFiles.isEmpty()) {
+        "$testDataFile: Duplicated test files encountered: $duplicatedTestFiles"
+    }
+
     // Initialize module dependencies.
     testFiles.map { it.module }.initializeModules()
 
