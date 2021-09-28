@@ -40,7 +40,7 @@ class TypeUnifier(private val session: FirSession, private val typeParameterSymb
                 val localResult = UnificationResult()
                 doUnify(intersectedType, projectWithVariables, localResult)
 
-                for ((typeParameterSymbol, typeParameterType) in localResult.getSubstitution()) {
+                for ((typeParameterSymbol, typeParameterType) in localResult.substitution) {
                     val existingTypeParameterType = intersectionResult[typeParameterSymbol]
                     if (existingTypeParameterType == null ||
                         AbstractTypeChecker.isSubtypeOf(session.typeContext, typeParameterType, existingTypeParameterType)
@@ -136,7 +136,9 @@ class TypeUnifier(private val session: FirSession, private val typeParameterSymb
 class UnificationResult {
     private var success: Boolean = true
     private var failedVariables: MutableSet<FirTypeParameterSymbol> = mutableSetOf()
-    private val substitution: MutableMap<FirTypeParameterSymbol, ConeKotlinType> = mutableMapOf()
+    private val _substitution: MutableMap<FirTypeParameterSymbol, ConeKotlinType> = mutableMapOf()
+    val substitution: Map<FirTypeParameterSymbol, ConeKotlinType>
+        get() = _substitution
 
     fun fail() {
         success = false
@@ -146,15 +148,11 @@ class UnificationResult {
         if (failedVariables.contains(key)) return
 
         if (substitution.containsKey(key)) {
-            substitution.remove(key)
+            _substitution.remove(key)
             failedVariables.add(key)
             fail()
         } else {
-            substitution[key] = value
+            _substitution[key] = value
         }
-    }
-
-    fun getSubstitution(): Map<FirTypeParameterSymbol, ConeKotlinType> {
-        return substitution
     }
 }

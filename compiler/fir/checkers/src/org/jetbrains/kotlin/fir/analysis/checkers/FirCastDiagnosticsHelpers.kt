@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.AbstractTypeChecker.findCorrespondingSupertypes
 import org.jetbrains.kotlin.types.model.typeConstructor
@@ -141,18 +142,84 @@ fun isCastErased(supertype: ConeKotlinType, subtype: ConeKotlinType, context: Ch
     // NOTE: this does not account for 'as Array<List<T>>'
     if (subtype.allParameterReified()) return false
 
-    val staticallyKnownSubtype = findStaticallyKnownSubtype(supertype, subtype, context).first ?: return true
+    val supertypeWithoutIntersectionWithErrorFlag = removeIntersectionTypes(supertype)
+    if (supertypeWithoutIntersectionWithErrorFlag.containsError) {
+        return false
+    }
+
+    val subtypeWithoutIntersectionWithErrorFlag = removeIntersectionTypes(subtype)
+    if (subtypeWithoutIntersectionWithErrorFlag.containsError) {
+        return false
+    }
+
+    val supertypeWithoutIntersection = supertypeWithoutIntersectionWithErrorFlag.type as ConeKotlinType
+    val subtypeWithoutIntersection = subtypeWithoutIntersectionWithErrorFlag.type as ConeKotlinType
+
+    if (supertypeWithoutIntersection.isMarkedNullable) return false
+
+    val staticallyKnownSubtype =
+        findStaticallyKnownSubtype(supertypeWithoutIntersection, subtypeWithoutIntersection, context).first ?: return true
 
     // If the substitution failed, it means that the result is an impossible type, e.g. something like Out<in Foo>
     // In this case, we can't guarantee anything, so the cast is considered to be erased
 
     // If the type we calculated is a subtype of the cast target, it's OK to use the cast target instead.
     // If not, it's wrong to use it
-    return !AbstractTypeChecker.isSubtypeOf(context.session.typeContext, staticallyKnownSubtype, subtype)
+    return !AbstractTypeChecker.isSubtypeOf(context.session.typeContext, staticallyKnownSubtype, subtypeWithoutIntersection)
 }
 
 private fun ConeKotlinType.allParameterReified(): Boolean {
     return typeArguments.all { (it.type as? ConeTypeParameterType)?.lookupTag?.typeParameterSymbol?.isReified == true }
+}
+
+private data class TypeWithErrorFlag(val type: ConeTypeProjection, val containsError: Boolean = false)
+
+private fun removeIntersectionTypes(type: ConeTypeProjection): TypeWithErrorFlag {
+    return when (type) {
+        is ConeIntersectionType -> {
+            for (intersectionType in type.intersectedTypes) {
+                return removeIntersectionTypes(intersectionType)
+            }
+            return TypeWithErrorFlag(type)
+        }
+        is ConeClassLikeType -> {
+            var containsError = type is ConeClassErrorType
+
+            if (type.typeArguments.isEmpty()) {
+                return TypeWithErrorFlag(type, containsError)
+            }
+
+            val newTypeArguments = mutableListOf<ConeTypeProjection>()
+
+            for (typeArgument in type.typeArguments) {
+                val result = removeIntersectionTypes(typeArgument)
+                newTypeArguments.add(result.type)
+                containsError = containsError || result.containsError
+            }
+
+            return TypeWithErrorFlag(
+                ConeClassLikeTypeImpl(type.lookupTag, newTypeArguments.toTypedArray(), type.isNullable, type.attributes),
+                containsError
+            )
+        }
+        is ConeKotlinTypeProjectionOut -> {
+            removeIntersectionTypes(type.type).let {
+                TypeWithErrorFlag(
+                    ConeKotlinTypeProjectionOut(it.type as ConeKotlinType),
+                    it.containsError
+                )
+            }
+        }
+        is ConeKotlinTypeProjectionIn ->
+            removeIntersectionTypes(type.type).let {
+                TypeWithErrorFlag(
+                    ConeKotlinTypeProjectionIn(it.type as ConeKotlinType),
+                    it.containsError
+                )
+            }
+        is ConeStarProjection -> TypeWithErrorFlag(type)
+        else -> TypeWithErrorFlag(type)
+    }
 }
 
 /**
@@ -176,8 +243,6 @@ fun findStaticallyKnownSubtype(
     subtype: ConeKotlinType,
     context: CheckerContext
 ): Pair<ConeKotlinType?, Boolean> {
-    assert(!supertype.isMarkedNullable) { "This method only makes sense for non-nullable types" }
-
     val session = context.session
     val typeContext = session.typeContext
 
@@ -193,27 +258,13 @@ fun findStaticallyKnownSubtype(
         stubTypesEqualToAnything = true
     )
 
-    fun getFirstNotIntersectedType(type: ConeKotlinType): ConeKotlinType? {
-        if (type is ConeIntersectionType) {
-            for (intersectionType in type.intersectedTypes) {
-                val result = getFirstNotIntersectedType(intersectionType)
-                if (result != null) {
-                    return result
-                }
-            }
-            return null
-        }
-        return type
-    }
-
     // Obtaining not intersected type to get not null typeConstructor.
     // Not sure if it's correct
-    val notIntersectedSupertype = getFirstNotIntersectedType(supertype) ?: supertype
     val supertypeWithVariables =
         findCorrespondingSupertypes(
             typeCheckerState,
             subtypeWithVariablesType,
-            notIntersectedSupertype.typeConstructor(typeContext)
+            supertype.typeConstructor(typeContext)
         ).firstOrNull()
 
     val variables = subtypeWithVariables.typeParameterSymbols
@@ -222,7 +273,7 @@ fun findStaticallyKnownSubtype(
         // Now, let's try to unify Collection<T> and Collection<Foo> solution is a map from T to Foo
         val typeUnifier = TypeUnifier(session, variables)
         val unificationResult = typeUnifier.unify(supertype, supertypeWithVariables as ConeKotlinTypeProjection)
-        unificationResult.getSubstitution().toMutableMap()
+        unificationResult.substitution.toMutableMap()
     } else {
         mutableMapOf()
     }
