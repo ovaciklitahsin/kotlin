@@ -94,18 +94,12 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
     var lastParsedDirective: Directive? = null
 
-    fun beginTestFile(fileName: String, lineNumber: Int) {
+    fun beginTestFile(fileName: String) {
         assertEquals(null, currentTestFileName)
         currentTestFileName = fileName
-
-        if (currentTestFileContents.isEmpty()) {
-            repeat(lineNumber) { currentTestFileContents.appendLine() } // Preserve line numbers as in the original test data file.
-        } else {
-            // Just continuing unfinished test file.
-        }
     }
 
-    fun finishTestFile(forceFinish: Boolean) {
+    fun finishTestFile(forceFinish: Boolean, lineNumber: Int) {
         val needToFinish = forceFinish
                 || currentTestFileName != null
                 || (currentTestFileName == null /*&& testFiles.isEmpty()*/ && currentTestFileContents.hasAnythingButComments())
@@ -119,6 +113,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
             )
 
             currentTestFileContents.clear()
+            repeat(lineNumber) { currentTestFileContents.appendLine() }
             currentTestFileName = null
         }
     }
@@ -141,8 +136,8 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
                 when (val directive = parsedDirective.directive) {
                     TestDirectives.FILE -> {
                         val newFileName = parseFileName(parsedDirective, location)
-                        finishTestFile(forceFinish = false)
-                        beginTestFile(newFileName, lineNumber)
+                        finishTestFile(forceFinish = false, lineNumber)
+                        beginTestFile(newFileName)
                     }
                     else -> {
                         assertFalse(expectFileDirectiveAfterModuleDirective) {
@@ -151,7 +146,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
                         when (directive) {
                             TestDirectives.MODULE -> {
-                                finishTestFile(forceFinish = false)
+                                finishTestFile(forceFinish = false, lineNumber)
                                 currentTestModule = parseModule(parsedDirective, location)
                             }
                             else -> {
@@ -182,7 +177,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
         currentTestFileContents.appendLine(line)
     }
 
-    finishTestFile(forceFinish = true)
+    finishTestFile(forceFinish = true, lineNumber = /* does not matter anymore */ 0)
 
     // Initialize module dependencies.
     testFiles.map { it.module }.initializeModules()
