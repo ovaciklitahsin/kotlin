@@ -2,7 +2,6 @@
 // WASM_MUTE_REASON: COROUTINES
 // WITH_RUNTIME
 // KJS_WITH_FULL_RUNTIME
-// !LANGUAGE: +NewInference
 
 class ExtensionReceiver
 typealias SuspendExtensionFunction = suspend ExtensionReceiver.() -> Unit

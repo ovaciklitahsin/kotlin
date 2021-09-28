@@ -1,4 +1,3 @@
-// !LANGUAGE: +NewInference +FunctionalInterfaceConversion +SamConversionPerArgument +SamConversionForKotlinFunctions
 // TARGET_BACKEND: JVM
 // IGNORE_BACKEND: JVM_IR
 // WITH_RUNTIME

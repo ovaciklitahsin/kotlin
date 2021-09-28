@@ -1,6 +1,5 @@
 // DONT_TARGET_EXACT_BACKEND: WASM
 // WASM_MUTE_REASON: SAM_CONVERSIONS
-// !LANGUAGE: +NewInference +FunctionalInterfaceConversion +SamConversionPerArgument +SamConversionForKotlinFunctions
 
 // This test should check argument coercion between the SAM and the lambda.
 // For now it checks that Char is boxed in JS
