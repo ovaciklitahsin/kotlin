@@ -175,7 +175,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                     when (symbol) {
                         is FirTypeAliasSymbol ->
                             outerDeclarations.sumOf { it?.let { d -> getActualTypeParametersCount(d) } ?: 0 }
-                        else -> (symbol as FirClassSymbol<*>).typeParameterSymbols.size
+                        else -> symbol.typeParameterSymbols.size
                     }
 
                 for ((typeParameterIndex, typeParameter) in originalTypeParameters.withIndex()) {
@@ -274,7 +274,8 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             currentClassLikeDeclaration = reversedOuterClasses[index]
             val typeParameters = when (currentClassLikeDeclaration) {
                 is FirTypeAlias -> currentClassLikeDeclaration.typeParameters
-                else -> (currentClassLikeDeclaration as? FirClass)?.typeParameters
+                is FirClass -> currentClassLikeDeclaration.typeParameters
+                else -> null
             }
             if (currentClassLikeDeclaration != null && typeParameters != null) {
                 for (typeParameter in typeParameters) {
