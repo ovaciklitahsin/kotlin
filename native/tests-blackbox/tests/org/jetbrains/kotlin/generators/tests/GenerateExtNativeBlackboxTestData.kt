@@ -26,16 +26,18 @@ import java.lang.StringBuilder
 internal fun generateExtNativeBlackboxTestData(
     testDataSource: String,
     testDataDestination: String,
+    reusedModules: String,
     init: ExtTestDataConfig.() -> Unit
 ) {
-    val testDataConfig = ExtTestDataConfig(testDataSource, testDataDestination)
+    val testDataConfig = ExtTestDataConfig(testDataSource, testDataDestination, reusedModules)
     testDataConfig.init()
     testDataConfig.generateTestData()
 }
 
 internal class ExtTestDataConfig(
     private val testDataSource: String,
-    private val testDataDestination: String
+    private val testDataDestination: String,
+    private val reusedModules: String
 ) {
     private val includes = linkedSetOf<String>()
     private val excludes = mutableSetOf<String>()
@@ -56,12 +58,17 @@ internal class ExtTestDataConfig(
         testDataDestinationDir.deleteRecursivelyWithLogging()
         testDataDestinationDir.mkdirsWithLogging()
 
+        val reusedModulesDir = getAbsoluteFile(reusedModules)
+        reusedModulesDir.deleteRecursivelyWithLogging()
+        reusedModulesDir.mkdirsWithLogging()
+
         val roots = if (includes.isNotEmpty())
             includes.map { testDataSourceDir.resolve(it) }
         else
             listOf(testDataSourceDir)
 
         val excludedItems = excludes.map { testDataSourceDir.resolve(it) }.toSet()
+        val reusedModules = ReusedTestModules()
 
         roots.forEach { root ->
             root.walkTopDown()
@@ -72,9 +79,11 @@ internal class ExtTestDataConfig(
                         testDataFile = file,
                         testDataSourceDir = testDataSourceDir,
                         testDataDestinationDir = testDataDestinationDir
-                    ).generateNewTestDataFileIfNecessary()
+                    ).generateNewTestDataFileIfNecessary(reusedModules)
                 }
         }
+
+        reusedModules.dumpToDir(reusedModulesDir)
     }
 }
 
@@ -103,7 +112,7 @@ private class ExtTestDataFile(
                 && structure.directives[API_VERSION_DIRECTIVE] !in INCOMPATIBLE_API_VERSIONS
                 && structure.directives[LANGUAGE_VERSION_DIRECTIVE] !in INCOMPATIBLE_LANGUAGE_VERSIONS
 
-    fun generateNewTestDataFileIfNecessary() {
+    fun generateNewTestDataFileIfNecessary(reusedTestModules: ReusedTestModules) {
         if (!shouldBeGenerated()) return
 
         removeAllDirectives()
@@ -116,7 +125,8 @@ private class ExtTestDataFile(
         val relativeFile = testDataFile.relativeTo(testDataSourceDir)
         val destinationFile = testDataDestinationDir.resolve(relativeFile)
 
-        destinationFile.writeFileWithLogging(structure.generateText(), Charsets.UTF_8)
+        destinationFile.writeFileWithLogging(structure.generateTextExcludingSupportModule(), Charsets.UTF_8)
+        structure.generateReusedSupportModule(reusedTestModules::addFile)
     }
 
     /** Remove all directives from the text. */
@@ -155,7 +165,7 @@ private class ExtTestDataFile(
     private fun stampPackageNames() {
         var inMultilineComment = false
 
-        structure.transformEachFileByLines(skipSupportFiles = false) { line ->
+        structure.transformEachFileByLines { line ->
             val trimmedLine = line.trim()
             when {
                 inMultilineComment -> inMultilineComment = !trimmedLine.endsWith("*/")
@@ -191,7 +201,7 @@ private class ExtTestDataFile(
                     val importStatementMatch = IMPORT_STATEMENT_REGEX.matchEntire(line)
                     if (importStatementMatch != null) {
                         val importQualifier = importStatementMatch.groupValues[1]
-                        if (importQualifier.isKotlinImportQualifier())
+                        if (importQualifier.isKotlinImportQualifier() || importQualifier.isHelpersImportQualifier())
                             buffer.append(line)
                         else
                             buffer.append(line.insert(importStatementMatch.groups[1]!!.range.first, "${settings.effectivePackageName}."))
@@ -295,6 +305,7 @@ private class ExtTestDataFile(
 
 private fun String.isKotlinPackageName() = this == "kotlin" || startsWith("kotlin.")
 private fun String.isKotlinImportQualifier() = startsWith("kotlin.")
+private fun String.isHelpersImportQualifier() = startsWith("helpers.")
 
 private class ExtTestDataFileSettings(
     val languageSettings: Set<String>,
@@ -314,13 +325,23 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         val generatedFiles = TestFiles.createTestFiles(DEFAULT_FILE_NAME, originalTestDataFile.readText(Charsets.UTF_8), factory)
         files += generatedFiles
         generatedFiles.map { it.module }.associateByTo(modules) { it.name }
+
+        // Explicitly add support module to other modules' dependencies (as it is not listed there by default).
+        val supportModule = modules[SUPPORT_MODULE_NAME]
+        if (supportModule != null) {
+            modules.forEach { (moduleName, module) ->
+                if (moduleName != SUPPORT_MODULE_NAME && supportModule !in module.dependencies) {
+                    module.dependencies += supportModule
+                }
+            }
+        }
     }
 
     val directives: Directives get() = factory.directives
 
-    inline fun forEachFile(skipSupportFiles: Boolean = true, action: CurrentFileHandler.() -> Unit) {
+    inline fun forEachFile(action: CurrentFileHandler.() -> Unit) {
         files.forEach { file ->
-            if (!skipSupportFiles || !file.module.isSupport) {
+            if (!file.module.isSupport) {
                 val handler = object : CurrentFileHandler {
                     override val packageNameOfCurrentFile = object : CurrentFileHandler.PackageNameHandler {
                         override var packageName: PackageName
@@ -348,8 +369,8 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         }
     }
 
-    inline fun transformEachFileByLines(skipSupportFiles: Boolean = true, transform: CurrentFileHandler.(line: String) -> String?) {
-        forEachFile(skipSupportFiles) {
+    inline fun transformEachFileByLines(transform: CurrentFileHandler.(line: String) -> String?) {
+        forEachFile {
             textOfCurrentFile = textOfCurrentFile.transformByLines { line -> transform(line) }
         }
     }
@@ -364,7 +385,7 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         files += factory.createFile(mainModule, fileName, text)
     }
 
-    fun generateText(): String {
+    fun generateTextExcludingSupportModule(): String {
         checkModulesConsistency()
 
         val isStandaloneTest = files.any { it.packageName?.isKotlinPackageName() == true }
@@ -375,6 +396,8 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
             if (isStandaloneTest) appendLine("// KIND: STANDALONE")
 
             modules.entries.sortedBy { it.key }.forEach { (_, module) ->
+                if (module.isSupport) return@forEach // Skip support module.
+
                 // MODULE line:
                 append("// MODULE: ${module.name}")
                 if (module.dependencies.isNotEmpty() || module.friends.isNotEmpty()) {
@@ -396,6 +419,14 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
                     // FILE contents:
                     appendLine(file.text)
                 }
+            }
+        }
+    }
+
+    fun generateReusedSupportModule(action: (moduleName: String, fileName: String, fileText: String) -> Unit) {
+        modules[SUPPORT_MODULE_NAME]?.let { supportModule ->
+            supportModule.files.forEach { file ->
+                action(supportModule.name, file.name, file.text)
             }
         }
     }
@@ -492,3 +523,51 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
             "${::generateExtNativeBlackboxTestData.javaClass.`package`.name}.${::generateExtNativeBlackboxTestData.name}()"
     }
 }
+
+private class ReusedTestModules {
+    val modules = mutableMapOf<String, ReusedTestModule>()
+
+    fun addFile(moduleName: String, fileName: String, fileText: String) {
+        modules.getOrPut(moduleName) { ReusedTestModule() }.files.getOrPut(fileName) { mutableSetOf() } += ReusedTestFile(fileText)
+    }
+
+    fun dumpToDir(outputDir: File) {
+        modules.forEach { (moduleName, module) ->
+            val moduleDir = outputDir.resolve(moduleName)
+            moduleDir.mkdirs()
+
+            module.files.forEach { (fileName, files) ->
+                val singleFileText: String = when (files.size) {
+                    1 -> files.first().text
+                    2 -> {
+                        val (file1, file2) = files.toList()
+                        tryToMerge(file1.text, file2.text)
+                    }
+                    else -> null
+                } ?: fail { "Multiple variations of the same reused test file found: $fileName (${files.size})" }
+
+                moduleDir.resolve(fileName).writeText(singleFileText, Charsets.UTF_8)
+            }
+        }
+    }
+
+    // Try to merge two files (covers the most trivial case).
+    private fun tryToMerge(text1: String, text2: String): String? {
+        val trimmedText1 = text1.trim()
+        val trimmedText2 = text2.trim()
+
+        return when {
+            trimmedText1.startsWith(trimmedText2) -> text1
+            trimmedText2.startsWith(trimmedText1) -> text2
+            else -> null
+        }
+    }
+}
+
+@JvmInline
+private value class ReusedTestModule(val files: MutableMap<String, MutableSet<ReusedTestFile>>) {
+    constructor() : this(mutableMapOf())
+}
+
+@JvmInline
+private value class ReusedTestFile(val text: String)

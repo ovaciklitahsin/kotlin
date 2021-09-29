@@ -14,7 +14,8 @@ fun main() {
     runAndLogDuration("Generating test data for external Kotlin/Native blackbox tests") {
         generateExtNativeBlackboxTestData(
             testDataSource = "compiler/testData",
-            testDataDestination = "native/tests-blackbox/ext-testData"
+            testDataDestination = "native/tests-blackbox/ext-testData",
+            reusedModules = "native/tests-blackbox/ext-testData/__reused_modules__"
         ) {
             include("codegen/box")
             include("codegen/boxInline")
