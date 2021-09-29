@@ -201,7 +201,7 @@ fun generateKLib(
     val project = depsDescriptors.project
     val files = (depsDescriptors.mainModule as MainModule.SourceFiles).files
     val configuration = depsDescriptors.compilerConfiguration
-    val allDependencies = depsDescriptors.allDependencies
+    val allDependencies = depsDescriptors.allDependencies.map { it.library }
     val messageLogger = configuration.get(IrMessageLogger.IR_MESSAGE_LOGGER) ?: IrMessageLogger.None
 
     val icData = mutableListOf<KotlinFileSerializedData>()
@@ -212,7 +212,7 @@ fun generateKLib(
         files,
         configuration,
         depsDescriptors.jsFrontEndResult.jsAnalysisResult,
-        sortDependencies(allDependencies, depsDescriptors.descriptors),
+        sortDependencies(depsDescriptors.descriptors),
         icData,
         expectDescriptorToSymbol,
         irFactory,
@@ -229,7 +229,7 @@ fun generateKLib(
         depsDescriptors.jsFrontEndResult.bindingContext,
         files,
         outputKlibPath,
-        allDependencies.map { it.library },
+        allDependencies,
         moduleFragment,
         expectDescriptorToSymbol,
         icData,
@@ -251,11 +251,10 @@ data class IrModuleInfo(
     val loweredIrLoaded: Set<IrModuleFragment> = emptySet(),
 )
 
-private fun sortDependencies(resolvedDependencies: List<KotlinResolvedLibrary>, mapping: Map<KotlinLibrary, ModuleDescriptor>): Collection<KotlinLibrary> {
+fun sortDependencies(mapping: Map<KotlinLibrary, ModuleDescriptor>): Collection<KotlinLibrary> {
     val m2l = mapping.map { it.value to it.key }.toMap()
-    val dependencies = resolvedDependencies.map { it.library }
 
-    return DFS.topologicalOrder(dependencies) { m ->
+    return DFS.topologicalOrder(mapping.keys) { m ->
         val descriptor = mapping[m] ?: error("No descriptor found for library ${m.libraryName}")
         descriptor.allDependencyModules.filter { it != descriptor }.map { m2l[it] }
     }.reversed()
@@ -278,7 +277,7 @@ fun loadIr(
     val project = depsDescriptors.project
     val mainModule = depsDescriptors.mainModule
     val configuration = depsDescriptors.compilerConfiguration
-    val allDependencies = depsDescriptors.allDependencies
+    val allDependencies = depsDescriptors.allDependencies.map { it.library }
     val errorPolicy = configuration.get(JSConfigurationKeys.ERROR_TOLERANCE_POLICY) ?: ErrorTolerancePolicy.DEFAULT
     val messageLogger = configuration.get(IrMessageLogger.IR_MESSAGE_LOGGER) ?: IrMessageLogger.None
 
@@ -294,7 +293,7 @@ fun loadIr(
                 project,
                 configuration,
                 mainModule.files,
-                sortDependencies(allDependencies, depsDescriptors.descriptors),
+                sortDependencies(depsDescriptors.descriptors),
                 depsDescriptors.loweredIcData,
                 symbolTable,
                 messageLogger,
@@ -320,11 +319,10 @@ fun loadIr(
             }
 
             val mainPath = File(mainModule.libPath).canonicalPath
-            val mainResolvedLibrary = allDependencies.find { it.library.libraryFile.canonicalPath == mainPath }
+            val mainModuleLib = allDependencies.find { it.libraryFile.canonicalPath == mainPath }
                 ?: error("No module with ${mainModule.libPath} found")
-            val mainModuleLib = mainResolvedLibrary.library
             val moduleDescriptor = depsDescriptors.getModuleDescriptor(mainModuleLib)
-            val sortedDependencies = sortDependencies(listOf(mainResolvedLibrary), depsDescriptors.descriptors)
+            val sortedDependencies = sortDependencies(depsDescriptors.descriptors)
             return getIrModuleInfoForKlib(
                 moduleDescriptor,
                 sortedDependencies,
@@ -340,8 +338,8 @@ fun loadIr(
 }
 
 @OptIn(ObsoleteDescriptorBasedAPI::class)
-private fun getIrModuleInfoForKlib(
-    moduleDescriptor: ModuleDescriptorImpl,
+fun getIrModuleInfoForKlib(
+    moduleDescriptor: ModuleDescriptor,
     sortedDependencies: Collection<KotlinLibrary>,
     configuration: CompilerConfiguration,
     symbolTable: SymbolTable,
@@ -381,7 +379,7 @@ private fun getIrModuleInfoForKlib(
     )
 }
 
-private fun getIrModuleInfoForSourceFiles(
+fun getIrModuleInfoForSourceFiles(
     psi2IrContext: GeneratorContext,
     project: Project,
     configuration: CompilerConfiguration,
