@@ -45,7 +45,7 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
             }.cast()
 
         private val ExtensionContext.enclosingTestInstance: AbstractNativeBlackBoxTest
-            get() = requiredTestInstances.enclosingInstances.first().cast()
+            get() = requiredTestInstances.allInstances.firstOrNull().cast()
 
         private val ExtensionContext.enclosingTestClass: Class<*>
             get() = generateSequence(requiredTestClass) { it.enclosingClass }.last()
