@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.generators.tests.ReusedModulesPath
 import org.jetbrains.kotlin.test.TestMetadata
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
@@ -27,6 +28,7 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
                 val globalEnvironment = GlobalTestEnvironment() // Create with the default settings.
 
                 val testRoots = computeTestRoots()
+                val reusedModulesDir = enclosingTestClass.getAnnotation(ReusedModulesPath::class.java)?.reusedModulesDir
 
                 val testSourcesDir = globalEnvironment.baseBuildDir
                     .resolve("blackbox-test-sources")
@@ -41,7 +43,7 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
                         makeEmptyDirectory() // Clean-up the directory with all potentially stale executables.
                     }
 
-                createBlackBoxTestProvider(TestEnvironment(globalEnvironment, testRoots, testSourcesDir, testBinariesDir))
+                createBlackBoxTestProvider(TestEnvironment(globalEnvironment, testRoots, reusedModulesDir, testSourcesDir, testBinariesDir))
             }.cast()
 
         private val ExtensionContext.enclosingTestInstance: AbstractNativeBlackBoxTest
@@ -79,5 +81,6 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
         }
 
         private val TestMetadata.testRoot: File get() = getAbsoluteFile(localPath = value)
+        private val ReusedModulesPath.reusedModulesDir: File get() = getAbsoluteFile(localPath = value)
     }
 }

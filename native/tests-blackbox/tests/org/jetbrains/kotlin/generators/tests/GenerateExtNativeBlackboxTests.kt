@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.generators.tests
 
+import org.jetbrains.kotlin.generators.model.annotation
 import org.jetbrains.kotlin.konan.blackboxtest.AbstractNativeBlackBoxTest
 import org.jetbrains.kotlin.test.generators.generateTestGroupSuiteWithJUnit5
 
@@ -38,7 +39,10 @@ fun main() {
                 testsRoot = "native/tests-blackbox/ext-tests-gen",
                 testDataRoot = "native/tests-blackbox/ext-testData"
             ) {
-                testClass<AbstractNativeBlackBoxTest>(suiteTestClassName = "NativeExtBlackBoxTestGenerated") {
+                testClass<AbstractNativeBlackBoxTest>(
+                    suiteTestClassName = "NativeExtBlackBoxTestGenerated",
+                    annotations = listOf(annotation(ReusedModulesPath::class.java, "native/tests-blackbox/ext-testData/__reused_modules__"))
+                ) {
                     model("codegen")
                 }
             }

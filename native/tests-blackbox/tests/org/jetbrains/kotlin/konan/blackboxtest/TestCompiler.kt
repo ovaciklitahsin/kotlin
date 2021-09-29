@@ -58,8 +58,25 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
                 )
             }
             TestMode.WITH_MODULES -> {
+                val distinctModules: Set<TestModule> = files.map { it.module }.toSet()
 
-                TODO("unimplemented yet")
+//                val orderedModules = DFSEx.reverseTopologicalOrderWithoutCycles(
+//                    nodes = distinctModules,
+//                    getNeighbors = { module -> module.dependencies + module.friends },
+//                    onCycleDetected = { modules -> error("Cycle detected in modules $modules") }
+//                )
+
+//                val libraries = mutableMapOf<String, File>()
+//                with(orderedModules.iterator()) {
+//                    while (hasNext()) {
+//                        val module = next()
+//                        if (hasNext()) {
+//                            TODO("unimplemented yet")
+//                        }
+//                    }
+//                }
+
+                TODO("unimplemented yet: $distinctModules")
             }
         }
 
@@ -68,28 +85,35 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
 }
 
 private fun inventStableExecutableFileName(testCase: TestCase, environment: TestEnvironment): String {
-    val testDataFilesCount: Int
-    val firstTestDataFile: String
+    val filesCount: Int
+    val designatorPackageName: String
+    val baseName: String?
     val hash: Int
 
     when (testCase) {
         is TestCase.Simple -> {
-            testDataFilesCount = 1
-            firstTestDataFile = testCase.testDataFile.nameWithoutExtension
+            filesCount = 1
+            designatorPackageName = when (testCase) {
+                is TestCase.Regular -> testCase.packageName
+                is TestCase.Standalone -> testCase.designatorPackageName
+            }
+            baseName = testCase.testDataFile.nameWithoutExtension
             hash = testCase.testDataFile.hash
         }
         is TestCase.Composite -> {
-            testDataFilesCount = testCase.testDataFileToPackageNameMapping.size
-            firstTestDataFile = testCase.testDataFileToPackageNameMapping.keys.minOrNull()!!.nameWithoutExtension
+            filesCount = testCase.testDataFileToPackageNameMapping.size
+            designatorPackageName = testCase.testDataFileToPackageNameMapping.values.toSet().findCommonPackageName()
+            baseName = null
             hash = testCase.testDataFileToPackageNameMapping.keys.fold(0) { acc, testDataFile -> acc + testDataFile.hash }
         }
     }
 
     return buildString {
-        val prefix = testDataFilesCount.toString()
+        val prefix = filesCount.toString()
         repeat(3 - prefix.length) { append('0') }
         append(prefix).append('_')
-        append(firstTestDataFile).append('_')
+        append(designatorPackageName.replace('.', '_')).append('_')
+        if (baseName != null) append(baseName).append('_')
         append(hash.toUInt().toString(16).padStart(8, '0'))
         append('.').append(environment.globalEnvironment.target.family.exeSuffix)
     }

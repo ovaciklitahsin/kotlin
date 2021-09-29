@@ -134,20 +134,12 @@ internal fun parseModule(parsedDirective: RegisteredDirectivesParser.ParsedDirec
         )
     }
 
-    module ?: fail {
+    return module ?: fail {
         """
             $location: Invalid contents of ${parsedDirective.directive} directive: ${parsedDirective.values}
             ${parsedDirective.directive.description}
         """.trimIndent()
     }
-
-    if (module.name == DEFAULT_MODULE_NAME) {
-        assertTrue(module.dependencySymbols.isEmpty() && module.friendSymbols.isEmpty()) {
-            "$location: \"$DEFAULT_MODULE_NAME\" module may not have explicitly declared dependencies: ${parsedDirective.values}"
-        }
-    }
-
-    return module
 }
 
 private val TEST_MODULE_REGEX = Regex("^([a-zA-Z0-9_]+)(\\(([a-zA-Z0-9_,]*)\\)(\\(([a-zA-Z0-9_,]*)\\))?)?$")
@@ -207,7 +199,7 @@ private fun parseFileBasedDirective(
     return file.readText(Charsets.UTF_8)
 }
 
-internal class Location(private val testDataFile: File, private val lineNumber: Int? = null) {
+internal class Location(private val testDataFile: File, val lineNumber: Int? = null) {
     override fun toString() = buildString {
         append(testDataFile.path)
         if (lineNumber != null) append(':').append(lineNumber + 1)

@@ -48,6 +48,8 @@ internal fun createBlackBoxTestProvider(environment: TestEnvironment): TestProvi
     val testDataFileToTestCaseMapping: MutableMap<File, CompiledTestCase> = mutableMapOf()
     val groupedRegularTestCases: MutableMap<TestCompilerArgs, MutableList<TestCase.Regular>> = mutableMapOf()
 
+    // TODO: load reused modules
+
     environment.testRoots.roots.forEach { testRoot ->
         testRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
@@ -95,9 +97,16 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
     var lastParsedDirective: Directive? = null
 
-    fun switchTestModule(newTestModule: TestModule): TestModule {
+    fun switchTestModule(newTestModule: TestModule, location: Location): TestModule {
         // Don't register new test module if there is another one with the same name.
         val testModule = testModules.getOrPut(newTestModule.name) { newTestModule }
+
+        if (testModule !== newTestModule) {
+            assertTrue(testModule.areSameSymbols(newTestModule)) {
+                "$location: Two declarations of the same module with different dependencies found:\n$testModule\n$newTestModule"
+            }
+        }
+
         currentTestModule = testModule
         return testModule
     }
@@ -107,14 +116,14 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
         currentTestFileName = fileName
     }
 
-    fun finishTestFile(forceFinish: Boolean, lineNumber: Int) {
+    fun finishTestFile(forceFinish: Boolean, location: Location) {
         val needToFinish = forceFinish
                 || currentTestFileName != null
                 || (currentTestFileName == null /*&& testFiles.isEmpty()*/ && currentTestFileContents.hasAnythingButComments())
 
         if (needToFinish) {
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
-            val testModule = currentTestModule ?: switchTestModule(TestModule.newDefaultModule())
+            val testModule = currentTestModule ?: switchTestModule(TestModule.newDefaultModule(), location)
 
             testFiles += TestFile(
                 location = generatedSourcesDir.resolve(fileName),
@@ -123,7 +132,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
             )
 
             currentTestFileContents.clear()
-            repeat(lineNumber) { currentTestFileContents.appendLine() }
+            repeat(location.lineNumber!!) { currentTestFileContents.appendLine() }
             currentTestFileName = null
         }
     }
@@ -146,7 +155,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
                 when (val directive = parsedDirective.directive) {
                     TestDirectives.FILE -> {
                         val newFileName = parseFileName(parsedDirective, location)
-                        finishTestFile(forceFinish = false, lineNumber)
+                        finishTestFile(forceFinish = false, location)
                         beginTestFile(newFileName)
                     }
                     else -> {
@@ -156,8 +165,8 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
                         when (directive) {
                             TestDirectives.MODULE -> {
-                                finishTestFile(forceFinish = false, lineNumber)
-                                switchTestModule(parseModule(parsedDirective, location))
+                                finishTestFile(forceFinish = false, location)
+                                switchTestModule(parseModule(parsedDirective, location), location)
                             }
                             else -> {
                                 assertNotEquals(TestDirectives.FILE, lastParsedDirective) {
@@ -187,7 +196,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
         currentTestFileContents.appendLine(line)
     }
 
-    finishTestFile(forceFinish = true, lineNumber = /* does not matter anymore */ 0)
+    finishTestFile(forceFinish = true, Location(testDataFile, lineNumber = /* does not matter anymore */ 0))
 
     val duplicatedTestFiles = testFiles.groupingBy { it.location }.eachCount().filterValues { it > 1 }.keys
     assertTrue(duplicatedTestFiles.isEmpty()) {
@@ -211,17 +220,22 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
             outputData = outputData,
             packageName = effectivePackageName
         )
-        TestKind.STANDALONE -> TestCase.Standalone.WithTestRunner(testFiles, freeCompilerArgs, testDataFile, outputData)
-        TestKind.STANDALONE_NO_TR -> {
-            TestCase.Standalone.WithoutTestRunner(
-                files = testFiles,
-                freeCompilerArgs = freeCompilerArgs,
-                testDataFile = testDataFile,
-                inputData = parseInputData(baseDir = testDataFileDir, registeredDirectives, location),
-                outputData = outputData,
-                entryPoint = parseEntryPoint(registeredDirectives, location)
-            )
-        }
+        TestKind.STANDALONE -> TestCase.Standalone.WithTestRunner(
+            files = testFiles,
+            freeCompilerArgs = freeCompilerArgs,
+            testDataFile = testDataFile,
+            outputData = outputData,
+            designatorPackageName = effectivePackageName
+        )
+        TestKind.STANDALONE_NO_TR -> TestCase.Standalone.WithoutTestRunner(
+            files = testFiles,
+            freeCompilerArgs = freeCompilerArgs,
+            testDataFile = testDataFile,
+            inputData = parseInputData(baseDir = testDataFileDir, registeredDirectives, location),
+            outputData = outputData,
+            designatorPackageName = effectivePackageName,
+            entryPoint = parseEntryPoint(registeredDirectives, location)
+        )
     }
 }
 

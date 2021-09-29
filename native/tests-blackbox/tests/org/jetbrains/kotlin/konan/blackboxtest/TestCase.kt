@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.konan.blackboxtest
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import java.io.File
+import java.lang.System.*
 
 internal typealias PackageName = String
 
@@ -30,6 +31,13 @@ internal class TestModule(
     lateinit var friends: Set<TestModule>
 
     val files = mutableListOf<TestFile>()
+
+    override fun hashCode() = identityHashCode(this)
+    override fun equals(other: Any?) = other === this
+
+    override fun toString() = "TestModule(name=$name, dependencySymbols=$dependencySymbols, friendSymbols=$friendSymbols)"
+
+    fun areSameSymbols(other: TestModule) = dependencySymbols == other.dependencySymbols && friendSymbols == other.friendSymbols
 
     companion object {
         fun newDefaultModule() = TestModule(DEFAULT_MODULE_NAME, emptySet(), emptySet())
@@ -88,11 +96,21 @@ internal sealed interface TestCase {
         val packageName: PackageName
     ) : Simple(files, freeCompilerArgs, testDataFile, outputData)
 
-    sealed class Standalone(files: List<TestFile>, freeCompilerArgs: TestCompilerArgs, testDataFile: File, outputData: String?) :
-        Simple(files, freeCompilerArgs, testDataFile, outputData) {
+    sealed class Standalone(
+        files: List<TestFile>,
+        freeCompilerArgs: TestCompilerArgs,
+        testDataFile: File,
+        outputData: String?,
+        val designatorPackageName: PackageName
+    ) : Simple(files, freeCompilerArgs, testDataFile, outputData) {
 
-        class WithTestRunner(files: List<TestFile>, freeCompilerArgs: TestCompilerArgs, testDataFile: File, outputData: String?) :
-            Standalone(files, freeCompilerArgs, testDataFile, outputData)
+        class WithTestRunner(
+            files: List<TestFile>,
+            freeCompilerArgs: TestCompilerArgs,
+            testDataFile: File,
+            outputData: String?,
+            designatorPackageName: PackageName
+        ) : Standalone(files, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
 
         class WithoutTestRunner(
             files: List<TestFile>,
@@ -100,8 +118,9 @@ internal sealed interface TestCase {
             testDataFile: File,
             val inputData: String?,
             outputData: String?,
+            designatorPackageName: PackageName,
             val entryPoint: String
-        ) : Standalone(files, freeCompilerArgs, testDataFile, outputData)
+        ) : Standalone(files, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
     }
 
     class Composite(regularTestCases: List<Regular>) : TestCase {
