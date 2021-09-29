@@ -320,7 +320,7 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
 
     inline fun forEachFile(skipSupportFiles: Boolean = true, action: CurrentFileHandler.() -> Unit) {
         files.forEach { file ->
-            if (!skipSupportFiles || !file.isSupport) {
+            if (!skipSupportFiles || !file.module.isSupport) {
                 val handler = object : CurrentFileHandler {
                     override val packageNameOfCurrentFile = object : CurrentFileHandler.PackageNameHandler {
                         override var packageName: PackageName
@@ -460,8 +460,6 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
     ) {
         var packageName: PackageName? = null
 
-        val isSupport get() = module.isSupport || name == "CoroutineUtil.kt"
-
         init {
             module.files += this
         }
@@ -469,6 +467,8 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
 
     private class TestFileFactory : TestFiles.TestFileFactory<TestModule, TestFile> {
         private val defaultModule by lazy { createModule(DEFAULT_MODULE_NAME, emptyList(), emptyList(), emptyList()) }
+        private val supportModule by lazy { createModule(SUPPORT_MODULE_NAME, emptyList(), emptyList(), emptyList()) }
+
         lateinit var directives: Directives
 
         fun createFile(module: TestModule, fileName: String, text: String): TestFile =
@@ -476,7 +476,11 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
 
         override fun createFile(module: TestModule?, fileName: String, text: String, directives: Directives): TestFile {
             this.directives = directives
-            return createFile(module ?: defaultModule, fileName, text)
+            return createFile(
+                module = module ?: if (fileName == "CoroutineUtil.kt") supportModule else defaultModule,
+                fileName = fileName,
+                text = text
+            )
         }
 
         override fun createModule(name: String, dependencies: List<String>, friends: List<String>, abiVersions: List<Int>): TestModule =
