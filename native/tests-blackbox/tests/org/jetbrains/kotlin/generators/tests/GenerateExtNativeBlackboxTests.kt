@@ -16,7 +16,7 @@ fun main() {
         generateExtNativeBlackboxTestData(
             testDataSource = "compiler/testData",
             testDataDestination = "native/tests-blackbox/ext-testData",
-            reusedModules = "native/tests-blackbox/ext-testData/__reused_modules__"
+            sharedModules = "native/tests-blackbox/ext-testData/__shared_modules__"
         ) {
             include("codegen/box")
             include("codegen/boxInline")
@@ -41,7 +41,7 @@ fun main() {
             ) {
                 testClass<AbstractNativeBlackBoxTest>(
                     suiteTestClassName = "NativeExtBlackBoxTestGenerated",
-                    annotations = listOf(annotation(ReusedModulesPath::class.java, "native/tests-blackbox/ext-testData/__reused_modules__"))
+                    annotations = listOf(annotation(SharedModulesPath::class.java, "native/tests-blackbox/ext-testData/__shared_modules__"))
                 ) {
                     model("codegen")
                 }

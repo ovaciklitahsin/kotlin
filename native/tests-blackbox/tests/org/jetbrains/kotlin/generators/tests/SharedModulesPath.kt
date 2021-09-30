@@ -6,4 +6,4 @@
 package org.jetbrains.kotlin.generators.tests
 
 @Target(AnnotationTarget.CLASS)
-annotation class ReusedModulesPath(val value: String)
+annotation class SharedModulesPath(val value: String)

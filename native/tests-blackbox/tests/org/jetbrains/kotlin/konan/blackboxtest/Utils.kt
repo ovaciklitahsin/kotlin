@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.utils.DFS
 import java.io.File
 import java.nio.charset.Charset
 import java.nio.file.Path
+import java.util.*
 import kotlin.io.path.name
 
 internal fun File.deleteRecursivelyWithLogging() {
@@ -115,3 +116,6 @@ internal object DFSEx {
 
     private enum class State { VISITING, VISITED }
 }
+
+internal fun <T> Collection<T>.toIdentitySet(): Set<T> =
+    Collections.newSetFromMap(IdentityHashMap<T, Boolean>()).apply { addAll(this@toIdentitySet) }

@@ -26,10 +26,10 @@ import java.lang.StringBuilder
 internal fun generateExtNativeBlackboxTestData(
     testDataSource: String,
     testDataDestination: String,
-    reusedModules: String,
+    sharedModules: String,
     init: ExtTestDataConfig.() -> Unit
 ) {
-    val testDataConfig = ExtTestDataConfig(testDataSource, testDataDestination, reusedModules)
+    val testDataConfig = ExtTestDataConfig(testDataSource, testDataDestination, sharedModules)
     testDataConfig.init()
     testDataConfig.generateTestData()
 }
@@ -37,7 +37,7 @@ internal fun generateExtNativeBlackboxTestData(
 internal class ExtTestDataConfig(
     private val testDataSource: String,
     private val testDataDestination: String,
-    private val reusedModules: String
+    private val sharedModules: String
 ) {
     private val includes = linkedSetOf<String>()
     private val excludes = mutableSetOf<String>()
@@ -58,9 +58,9 @@ internal class ExtTestDataConfig(
         testDataDestinationDir.deleteRecursivelyWithLogging()
         testDataDestinationDir.mkdirsWithLogging()
 
-        val reusedModulesDir = getAbsoluteFile(reusedModules)
-        reusedModulesDir.deleteRecursivelyWithLogging()
-        reusedModulesDir.mkdirsWithLogging()
+        val sharedModulesDir = getAbsoluteFile(sharedModules)
+        sharedModulesDir.deleteRecursivelyWithLogging()
+        sharedModulesDir.mkdirsWithLogging()
 
         val roots = if (includes.isNotEmpty())
             includes.map { testDataSourceDir.resolve(it) }
@@ -68,7 +68,7 @@ internal class ExtTestDataConfig(
             listOf(testDataSourceDir)
 
         val excludedItems = excludes.map { testDataSourceDir.resolve(it) }.toSet()
-        val reusedModules = ReusedTestModules()
+        val sharedModules = SharedTestModules()
 
         roots.forEach { root ->
             root.walkTopDown()
@@ -79,11 +79,11 @@ internal class ExtTestDataConfig(
                         testDataFile = file,
                         testDataSourceDir = testDataSourceDir,
                         testDataDestinationDir = testDataDestinationDir
-                    ).generateNewTestDataFileIfNecessary(reusedModules)
+                    ).generateNewTestDataFileIfNecessary(sharedModules)
                 }
         }
 
-        reusedModules.dumpToDir(reusedModulesDir)
+        sharedModules.dumpToDir(sharedModulesDir)
     }
 }
 
@@ -112,7 +112,7 @@ private class ExtTestDataFile(
                 && structure.directives[API_VERSION_DIRECTIVE] !in INCOMPATIBLE_API_VERSIONS
                 && structure.directives[LANGUAGE_VERSION_DIRECTIVE] !in INCOMPATIBLE_LANGUAGE_VERSIONS
 
-    fun generateNewTestDataFileIfNecessary(reusedTestModules: ReusedTestModules) {
+    fun generateNewTestDataFileIfNecessary(sharedTestModules: SharedTestModules) {
         if (!shouldBeGenerated()) return
 
         removeAllDirectives()
@@ -126,7 +126,7 @@ private class ExtTestDataFile(
         val destinationFile = testDataDestinationDir.resolve(relativeFile)
 
         destinationFile.writeFileWithLogging(structure.generateTextExcludingSupportModule(), Charsets.UTF_8)
-        structure.generateReusedSupportModule(reusedTestModules::addFile)
+        structure.generateSharedSupportModule(sharedTestModules::addFile)
     }
 
     /** Remove all directives from the text. */
@@ -423,7 +423,7 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         }
     }
 
-    fun generateReusedSupportModule(action: (moduleName: String, fileName: String, fileText: String) -> Unit) {
+    fun generateSharedSupportModule(action: (moduleName: String, fileName: String, fileText: String) -> Unit) {
         modules[SUPPORT_MODULE_NAME]?.let { supportModule ->
             supportModule.files.forEach { file ->
                 action(supportModule.name, file.name, file.text)
@@ -524,11 +524,11 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
     }
 }
 
-private class ReusedTestModules {
-    val modules = mutableMapOf<String, ReusedTestModule>()
+private class SharedTestModules {
+    val modules = mutableMapOf<String, SharedTestModule>()
 
     fun addFile(moduleName: String, fileName: String, fileText: String) {
-        modules.getOrPut(moduleName) { ReusedTestModule() }.files.getOrPut(fileName) { mutableSetOf() } += ReusedTestFile(fileText)
+        modules.getOrPut(moduleName) { SharedTestModule() }.files.getOrPut(fileName) { mutableSetOf() } += SharedTestFile(fileText)
     }
 
     fun dumpToDir(outputDir: File) {
@@ -544,7 +544,7 @@ private class ReusedTestModules {
                         tryToMerge(file1.text, file2.text)
                     }
                     else -> null
-                } ?: fail { "Multiple variations of the same reused test file found: $fileName (${files.size})" }
+                } ?: fail { "Multiple variations of the same shared test file found: $fileName (${files.size})" }
 
                 moduleDir.resolve(fileName).writeText(singleFileText, Charsets.UTF_8)
             }
@@ -565,9 +565,9 @@ private class ReusedTestModules {
 }
 
 @JvmInline
-private value class ReusedTestModule(val files: MutableMap<String, MutableSet<ReusedTestFile>>) {
+private value class SharedTestModule(val files: MutableMap<String, MutableSet<SharedTestFile>>) {
     constructor() : this(mutableMapOf())
 }
 
 @JvmInline
-private value class ReusedTestFile(val text: String)
+private value class SharedTestFile(val text: String)

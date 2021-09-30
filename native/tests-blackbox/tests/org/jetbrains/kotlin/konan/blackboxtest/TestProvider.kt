@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import com.intellij.util.containers.FactoryMap
 import org.jetbrains.kotlin.konan.blackboxtest.TestModule.Companion.initializeModules
 import org.jetbrains.kotlin.test.directives.model.Directive
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
@@ -45,15 +46,27 @@ internal class TestProvider(
 }
 
 internal fun createBlackBoxTestProvider(environment: TestEnvironment): TestProvider {
+    // Load shared modules on demand.
+    val sharedModules = FactoryMap.create<String, TestModule.Shared?> { name ->
+        environment.sharedModulesDir
+            ?.resolve(name)
+            ?.takeIf { it.isDirectory }
+            ?.listFiles()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { files ->
+                val module = TestModule.Shared(name)
+                files.mapTo(module.files) { file -> TestFile(file, file.readText(Charsets.UTF_8), module) }
+                module
+            }
+    }
+
     val testDataFileToTestCaseMapping: MutableMap<File, CompiledTestCase> = mutableMapOf()
     val groupedRegularTestCases: MutableMap<TestCompilerArgs, MutableList<TestCase.Regular>> = mutableMapOf()
-
-    // TODO: load reused modules
 
     environment.testRoots.roots.forEach { testRoot ->
         testRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
-            .map { testDataFile -> createSimpleTestCase(testDataFile, environment) }
+            .map { testDataFile -> createSimpleTestCase(testDataFile, environment, sharedModules::get) }
             .forEach { testCase ->
                 when (testCase) {
                     is TestCase.Standalone -> {
@@ -79,7 +92,11 @@ internal fun createBlackBoxTestProvider(environment: TestEnvironment): TestProvi
     return TestProvider(testDataFileToTestCaseMapping)
 }
 
-private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironment): TestCase.Simple {
+private fun createSimpleTestCase(
+    testDataFile: File,
+    environment: TestEnvironment,
+    findSharedModule: (name: String) -> TestModule.Shared?
+): TestCase.Simple {
     val testDataFileDir = testDataFile.parentFile
     val generatedSourcesDir = environment.testSourcesDir
         .resolve(testDataFileDir.relativeTo(environment.testRoots.baseDir))
@@ -87,22 +104,22 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
     val effectivePackageName = computePackageName(testDataDir = environment.testRoots.baseDir, testDataFile = testDataFile)
 
-    val testModules = mutableMapOf<String, TestModule>()
-    val testFiles = mutableListOf<TestFile>()
+    val testModules = mutableMapOf<String, TestModule.Regular>()
+    val testFiles = mutableListOf<TestFile<TestModule.Regular>>()
 
-    var currentTestModule: TestModule? = null
+    var currentTestModule: TestModule.Regular? = null
     var currentTestFileName: String? = null
     val currentTestFileText = StringBuilder()
 
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
     var lastParsedDirective: Directive? = null
 
-    fun switchTestModule(newTestModule: TestModule, location: Location): TestModule {
+    fun switchTestModule(newTestModule: TestModule.Regular, location: Location): TestModule.Regular {
         // Don't register new test module if there is another one with the same name.
         val testModule = testModules.getOrPut(newTestModule.name) { newTestModule }
 
         if (testModule !== newTestModule) {
-            assertTrue(testModule.areSameSymbols(newTestModule)) {
+            assertEquals(testModule, newTestModule) {
                 "$location: Two declarations of the same module with different dependencies found:\n$testModule\n$newTestModule"
             }
         }
@@ -199,12 +216,10 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     finishTestFile(forceFinish = true, Location(testDataFile, lineNumber = /* does not matter anymore */ 0))
 
     val duplicatedTestFiles = testFiles.groupingBy { it.location }.eachCount().filterValues { it > 1 }.keys
-    assertTrue(duplicatedTestFiles.isEmpty()) {
-        "$testDataFile: Duplicated test files encountered: $duplicatedTestFiles"
-    }
+    assertTrue(duplicatedTestFiles.isEmpty()) { "$testDataFile: Duplicated test files encountered: $duplicatedTestFiles" }
 
     // Initialize module dependencies.
-    testFiles.map { it.module }.initializeModules()
+    testFiles.map { it.module }.initializeModules(findSharedModule)
 
     val registeredDirectives = directivesParser.build()
     val location = Location(testDataFile)
@@ -245,7 +260,11 @@ private fun CharSequence.hasAnythingButComments(): Boolean {
     return result
 }
 
-private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, testDataFile: File): TestFile {
+private fun fixPackageDeclaration(
+    testFile: TestFile<TestModule.Regular>,
+    packageName: PackageName,
+    testDataFile: File
+): TestFile<TestModule.Regular> {
     var existingPackageDeclarationLine: String? = null
     var existingPackageDeclarationLineNumber: Int? = null
 

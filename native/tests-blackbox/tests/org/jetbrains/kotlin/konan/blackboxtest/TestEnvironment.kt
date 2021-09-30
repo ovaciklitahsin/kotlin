@@ -14,7 +14,7 @@ import java.net.URLClassLoader
 internal class TestEnvironment(
     val globalEnvironment: GlobalTestEnvironment,
     val testRoots: TestRoots, // The directories with original sources (aka testData).
-    val reusedModulesDir: File?, // The directory with the sources of the modules that are widely used in (shared among) multiple tests.
+    val sharedModulesDir: File?, // The directory with the sources of the modules that are widely used in (shared among) multiple tests.
     val testSourcesDir: File, // The directory with generated (preprocessed) test sources.
     val testBinariesDir: File // The directory with generated test binaries (executable files).
 )

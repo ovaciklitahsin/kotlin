@@ -157,7 +157,7 @@ private inline fun buildArgs(builderAction: ArgsBuilder.() -> Unit): Array<Strin
 }
 
 private fun TestCase.produceKlib(
-    sources: List<TestFile>,
+    sources: List<TestFile<*>>,
     dependencyLibraries: List<File> = emptyList(),
     friendLibraries: List<File> = emptyList(),
     output: File,
@@ -187,7 +187,7 @@ private fun TestCase.produceProgramFromIncludedKlib(
 }
 
 private fun TestCase.produceProgram(
-    sources: List<TestFile>,
+    sources: List<TestFile<*>>,
     dependencyLibraries: List<File> = emptyList(),
     friendLibraries: List<File> = emptyList(),
     output: File,
