@@ -125,9 +125,9 @@ internal fun parseEntryPoint(registeredDirectives: RegisteredDirectives, locatio
     return entryPoint
 }
 
-internal fun parseModule(parsedDirective: RegisteredDirectivesParser.ParsedDirective, location: Location): TestModule.Regular {
+internal fun parseModule(parsedDirective: RegisteredDirectivesParser.ParsedDirective, location: Location): TestModule.Individual {
     val module = parsedDirective.values.singleOrNull()?.toString()?.let(TEST_MODULE_REGEX::matchEntire)?.let { match ->
-        TestModule.Regular(
+        TestModule.Individual(
             name = match.groupValues[1],
             dependencySymbols = match.groupValues[3].split(',').filter(String::isNotEmpty).toSet(),
             friendSymbols = match.groupValues[5].split(',').filter(String::isNotEmpty).toSet()

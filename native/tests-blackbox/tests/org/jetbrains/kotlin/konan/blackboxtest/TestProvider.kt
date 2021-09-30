@@ -104,17 +104,16 @@ private fun createSimpleTestCase(
 
     val effectivePackageName = computePackageName(testDataDir = environment.testRoots.baseDir, testDataFile = testDataFile)
 
-    val testModules = mutableMapOf<String, TestModule.Regular>()
-    val testFiles = mutableListOf<TestFile<TestModule.Regular>>()
+    val testModules = mutableMapOf<String, TestModule.Individual>()
+    var currentTestModule: TestModule.Individual? = null
 
-    var currentTestModule: TestModule.Regular? = null
     var currentTestFileName: String? = null
     val currentTestFileText = StringBuilder()
 
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
     var lastParsedDirective: Directive? = null
 
-    fun switchTestModule(newTestModule: TestModule.Regular, location: Location): TestModule.Regular {
+    fun switchTestModule(newTestModule: TestModule.Individual, location: Location): TestModule.Individual {
         // Don't register new test module if there is another one with the same name.
         val testModule = testModules.getOrPut(newTestModule.name) { newTestModule }
 
@@ -142,7 +141,7 @@ private fun createSimpleTestCase(
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
             val testModule = currentTestModule ?: switchTestModule(TestModule.newDefaultModule(), location)
 
-            testFiles += TestFile(
+            testModule.files += TestFile(
                 location = generatedSourcesDir.resolve(fileName),
                 text = currentTestFileText.toString(),
                 module = testModule
@@ -215,11 +214,11 @@ private fun createSimpleTestCase(
 
     finishTestFile(forceFinish = true, Location(testDataFile, lineNumber = /* does not matter anymore */ 0))
 
-    val duplicatedTestFiles = testFiles.groupingBy { it.location }.eachCount().filterValues { it > 1 }.keys
+    val duplicatedTestFiles = testModules.values.flatMap { it.files }.groupingBy { it.location }.eachCount().filterValues { it > 1 }.keys
     assertTrue(duplicatedTestFiles.isEmpty()) { "$testDataFile: Duplicated test files encountered: $duplicatedTestFiles" }
 
     // Initialize module dependencies.
-    testFiles.map { it.module }.initializeModules(findSharedModule)
+    testModules.values.initializeModules(findSharedModule)
 
     val registeredDirectives = directivesParser.build()
     val location = Location(testDataFile)
@@ -229,21 +228,24 @@ private fun createSimpleTestCase(
 
     return when (parseTestKind(registeredDirectives, location)) {
         TestKind.REGULAR -> TestCase.Regular(
-            files = testFiles.map { testFile -> fixPackageDeclaration(testFile, effectivePackageName, testDataFile) },
+            // Fix package declarations to avoid unintended conflicts between symbols with the same name in different test cases.
+            modules = testModules.values.onEach { testModule ->
+                testModule.files.transformInPlace { testFile -> fixPackageDeclaration(testFile, effectivePackageName, testDataFile) }
+            },
             freeCompilerArgs = freeCompilerArgs,
             testDataFile = testDataFile,
             outputData = outputData,
             packageName = effectivePackageName
         )
         TestKind.STANDALONE -> TestCase.Standalone.WithTestRunner(
-            files = testFiles,
+            modules = testModules.values,
             freeCompilerArgs = freeCompilerArgs,
             testDataFile = testDataFile,
             outputData = outputData,
             designatorPackageName = effectivePackageName
         )
         TestKind.STANDALONE_NO_TR -> TestCase.Standalone.WithoutTestRunner(
-            files = testFiles,
+            modules = testModules.values,
             freeCompilerArgs = freeCompilerArgs,
             testDataFile = testDataFile,
             inputData = parseInputData(baseDir = testDataFileDir, registeredDirectives, location),
@@ -261,10 +263,10 @@ private fun CharSequence.hasAnythingButComments(): Boolean {
 }
 
 private fun fixPackageDeclaration(
-    testFile: TestFile<TestModule.Regular>,
+    testFile: TestFile<TestModule.Individual>,
     packageName: PackageName,
     testDataFile: File
-): TestFile<TestModule.Regular> {
+): TestFile<TestModule.Individual> {
     var existingPackageDeclarationLine: String? = null
     var existingPackageDeclarationLineNumber: Int? = null
 

@@ -86,12 +86,28 @@ internal fun Set<PackageName>.findCommonPackageName(): PackageName =
         }
     }.joinToString(".")
 
-internal object DFSEx {
-    fun <N : Any> reverseTopologicalOrderWithoutCycles(
+internal fun <T> Collection<T>.toIdentitySet(): Set<T> =
+    Collections.newSetFromMap(IdentityHashMap<T, Boolean>()).apply { addAll(this@toIdentitySet) }
+
+internal inline fun <reified T> MutableList<T>.transformInPlace(transformation: (T) -> T): MutableList<T> {
+    for (i in indices) {
+        this[i] = transformation(this[i])
+    }
+    return this
+}
+
+internal object DFSWithoutCycles {
+    fun <N : Any> reverseTopologicalOrder(
         nodes: Iterable<N>,
         getNeighbors: (N) -> Iterable<N>,
-        onCycleDetected: (Iterable<N>) -> Nothing
-    ): List<N> {
+        onCycleDetected: (Iterable<N>) -> Nothing = DEFAULT_CYCLE_HANDLER
+    ): List<N> = transitiveClosure(nodes, getNeighbors, onCycleDetected).reversed()
+
+    fun <N : Any> transitiveClosure(
+        nodes: Iterable<N>,
+        getNeighbors: (N) -> Iterable<N>,
+        onCycleDetected: (Iterable<N>) -> Nothing = DEFAULT_CYCLE_HANDLER
+    ): Set<N> {
         val visitedNodes = linkedMapOf<N, State>()
 
         val visitHandler = DFS.Visited<N> { true }
@@ -111,11 +127,10 @@ internal object DFSEx {
 
         nodes.forEach { node -> DFS.doDfs(node, getNeighbors, visitHandler, nodeHandler) }
 
-        return visitedNodes.keys.reversed()
+        return visitedNodes.keys
     }
 
     private enum class State { VISITING, VISITED }
-}
 
-internal fun <T> Collection<T>.toIdentitySet(): Set<T> =
-    Collections.newSetFromMap(IdentityHashMap<T, Boolean>()).apply { addAll(this@toIdentitySet) }
+    private val DEFAULT_CYCLE_HANDLER: (Iterable<*>) -> Nothing = { error("Cycle detected between nodes: $it") }
+}

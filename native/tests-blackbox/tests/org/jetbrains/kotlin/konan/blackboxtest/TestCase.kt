@@ -11,30 +11,35 @@ import java.io.File
 
 internal typealias PackageName = String
 
+/**
+ * Represents a single file that will be supplied to the compiler.
+ */
 internal data class TestFile<M : TestModule>(
     val location: File,
     val text: String,
     val module: M
-) {
-    init {
-        @Suppress("UNCHECKED_CAST")
-        when (module) {
-            is TestModule.Regular -> module.files += this as TestFile<TestModule.Regular>
-            is TestModule.Shared -> module.files += this as TestFile<TestModule.Shared>
-        }
-    }
-}
+)
 
+/**
+ * One or more [TestFile]s that are always compiled together.
+ *
+ * Please note that [TestModule] is the minimal possible compilation unit, but not always the maximal possible compilation unit.
+ * In certain test modes (ex: [TestMode.ONE_STAGE], [TestMode.TWO_STAGE]) modules represented by [TestModule] are ignored, and
+ * all [TestFile]s are compiled together in one shot.
+ *
+ * [TestModule.Individual] represents a collection of [TestFile]s used exclusively for an individual [TestCase].
+ * [TestModule.Shared] represents a "shared" module, i.e. the auxiliary module that can be used in multiple [TestCase]s.
+ */
 internal sealed class TestModule {
     abstract val name: String
     abstract val files: List<TestFile<*>>
 
-    data class Regular(
+    data class Individual(
         override val name: String,
         val dependencySymbols: Set<String>,
         val friendSymbols: Set<String>
     ) : TestModule() {
-        override val files: MutableList<TestFile<Regular>> = mutableListOf()
+        override val files: MutableList<TestFile<Individual>> = mutableListOf()
 
         lateinit var dependencies: Set<TestModule>
         lateinit var friends: Set<TestModule>
@@ -45,12 +50,12 @@ internal sealed class TestModule {
     }
 
     companion object {
-        fun newDefaultModule() = Regular(DEFAULT_MODULE_NAME, emptySet(), emptySet())
+        fun newDefaultModule() = Individual(DEFAULT_MODULE_NAME, emptySet(), emptySet())
 
-        fun Collection<Regular>.initializeModules(findSharedModule: (name: String) -> Shared?) {
-            val mapping: Map</* regular module name */ String, Regular> = toIdentitySet()
+        fun Collection<Individual>.initializeModules(findSharedModule: (name: String) -> Shared?) {
+            val mapping: Map</* regular module name */ String, Individual> = toIdentitySet()
                 .groupingBy { module -> module.name }
-                .aggregate { name, _: Regular?, module, isFirst ->
+                .aggregate { name, _: Individual?, module, isFirst ->
                     assertTrue(isFirst) { "Multiple test modules with the same name found: $name" }
                     module
                 }
@@ -73,6 +78,14 @@ internal sealed class TestModule {
                 }
             }
         }
+
+        fun Collection<Individual>.allDependencyModules(): Set<TestModule> =
+            DFSWithoutCycles.transitiveClosure<TestModule>(this, { module ->
+                when (module) {
+                    is Individual -> module.dependencies
+                    is Shared -> emptyList()
+                }
+            })
     }
 }
 
@@ -87,53 +100,53 @@ internal sealed class TestModule {
  *        WithTestRunner        WithoutTestRunner
  */
 internal sealed interface TestCase {
-    val files: List<TestFile<*>>
+    val modules: Collection<TestModule.Individual>
     val freeCompilerArgs: TestCompilerArgs
 
     sealed class Simple(
-        override val files: List<TestFile<*>>,
+        override val modules: Collection<TestModule.Individual>,
         override val freeCompilerArgs: TestCompilerArgs,
         val testDataFile: File, // The origin of the test case.
         val outputData: String?
     ) : TestCase
 
     class Regular(
-        files: List<TestFile<*>>,
+        modules: Collection<TestModule.Individual>,
         freeCompilerArgs: TestCompilerArgs,
         testDataFile: File,
         outputData: String?,
         val packageName: PackageName
-    ) : Simple(files, freeCompilerArgs, testDataFile, outputData)
+    ) : Simple(modules, freeCompilerArgs, testDataFile, outputData)
 
     sealed class Standalone(
-        files: List<TestFile<*>>,
+        modules: Collection<TestModule.Individual>,
         freeCompilerArgs: TestCompilerArgs,
         testDataFile: File,
         outputData: String?,
         val designatorPackageName: PackageName
-    ) : Simple(files, freeCompilerArgs, testDataFile, outputData) {
+    ) : Simple(modules, freeCompilerArgs, testDataFile, outputData) {
 
         class WithTestRunner(
-            files: List<TestFile<*>>,
+            modules: Collection<TestModule.Individual>,
             freeCompilerArgs: TestCompilerArgs,
             testDataFile: File,
             outputData: String?,
             designatorPackageName: PackageName
-        ) : Standalone(files, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
+        ) : Standalone(modules, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
 
         class WithoutTestRunner(
-            files: List<TestFile<*>>,
+            modules: Collection<TestModule.Individual>,
             freeCompilerArgs: TestCompilerArgs,
             testDataFile: File,
             val inputData: String?,
             outputData: String?,
             designatorPackageName: PackageName,
             val entryPoint: String
-        ) : Standalone(files, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
+        ) : Standalone(modules, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
     }
 
     class Composite(regularTestCases: List<Regular>) : TestCase {
-        override val files: List<TestFile<*>> = regularTestCases.flatMap { it.files }
+        override val modules: Collection<TestModule.Individual> = regularTestCases.flatMap { it.modules }
         override val freeCompilerArgs: TestCompilerArgs = regularTestCases.firstOrNull()?.freeCompilerArgs
             ?: TestCompilerArgs.EMPTY // Assume all compiler args are the same.
         val testDataFileToPackageNameMapping: Map<File, PackageName> = regularTestCases.associate { it.testDataFile to it.packageName }

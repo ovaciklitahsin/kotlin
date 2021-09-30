@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.cli.common.messages.*
 import org.jetbrains.kotlin.compilerRunner.OutputItemsCollectorImpl
 import org.jetbrains.kotlin.compilerRunner.processCompilerOutput
 import org.jetbrains.kotlin.config.Services
+import org.jetbrains.kotlin.konan.blackboxtest.TestModule.Companion.allDependencyModules
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import java.io.*
@@ -26,9 +27,11 @@ internal class CompiledTestCase(
 }
 
 internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): CompiledTestCase {
-    files.forEach { testFile ->
-        testFile.location.parentFile.mkdirs()
-        testFile.location.writeText(testFile.text)
+    modules.forEach { testModule ->
+        testModule.files.forEach { testFile ->
+            testFile.location.parentFile.mkdirs()
+            testFile.location.writeText(testFile.text)
+        }
     }
 
     environment.testBinariesDir.mkdirs()
@@ -39,7 +42,7 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
         when (environment.globalEnvironment.testMode) {
             TestMode.ONE_STAGE -> {
                 produceProgram(
-                    sources = files,
+                    sources = modules.allDependencyModules().flatMap { it.files },
                     output = executableFile,
                     environment = environment
                 )
@@ -47,7 +50,7 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
             TestMode.TWO_STAGE -> {
                 val klibFile = executableFile.resolveSibling(executableFile.nameWithoutExtension + ".klib")
                 produceKlib(
-                    sources = files,
+                    sources = modules.allDependencyModules().flatMap { it.files },
                     output = klibFile,
                     environment = environment
                 )
@@ -58,14 +61,14 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
                 )
             }
             TestMode.WITH_MODULES -> {
-                val distinctModules: Set<TestModule> = files.map { it.module }.toSet()
-
+//                val distinctModules: Set<TestModule> = files.map { it.module }.toSet()
+//
 //                val orderedModules = DFSEx.reverseTopologicalOrderWithoutCycles(
 //                    nodes = distinctModules,
 //                    getNeighbors = { module -> module.dependencies + module.friends },
 //                    onCycleDetected = { modules -> error("Cycle detected in modules $modules") }
 //                )
-
+//
 //                val libraries = mutableMapOf<String, File>()
 //                with(orderedModules.iterator()) {
 //                    while (hasNext()) {
@@ -76,7 +79,7 @@ internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): Compiled
 //                    }
 //                }
 
-                TODO("unimplemented yet: $distinctModules")
+                TODO("unimplemented yet")
             }
         }
 
