@@ -14,7 +14,7 @@ internal typealias PackageName = String
 
 internal data class TestFile(
     val location: File,
-    val contents: String,
+    val text: String,
     val module: TestModule
 ) {
     init {

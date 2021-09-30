@@ -28,7 +28,7 @@ internal class CompiledTestCase(
 internal fun TestCase.toCompiledTestCase(environment: TestEnvironment): CompiledTestCase {
     files.forEach { testFile ->
         testFile.location.parentFile.mkdirs()
-        testFile.location.writeText(testFile.contents)
+        testFile.location.writeText(testFile.text)
     }
 
     environment.testBinariesDir.mkdirs()

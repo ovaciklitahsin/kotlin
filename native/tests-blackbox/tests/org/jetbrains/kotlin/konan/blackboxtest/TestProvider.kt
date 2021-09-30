@@ -92,7 +92,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
     var currentTestModule: TestModule? = null
     var currentTestFileName: String? = null
-    val currentTestFileContents = StringBuilder()
+    val currentTestFileText = StringBuilder()
 
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
     var lastParsedDirective: Directive? = null
@@ -119,7 +119,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
     fun finishTestFile(forceFinish: Boolean, location: Location) {
         val needToFinish = forceFinish
                 || currentTestFileName != null
-                || (currentTestFileName == null /*&& testFiles.isEmpty()*/ && currentTestFileContents.hasAnythingButComments())
+                || (currentTestFileName == null /*&& testFiles.isEmpty()*/ && currentTestFileText.hasAnythingButComments())
 
         if (needToFinish) {
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
@@ -127,12 +127,12 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
 
             testFiles += TestFile(
                 location = generatedSourcesDir.resolve(fileName),
-                contents = currentTestFileContents.toString(),
+                text = currentTestFileText.toString(),
                 module = testModule
             )
 
-            currentTestFileContents.clear()
-            repeat(location.lineNumber!!) { currentTestFileContents.appendLine() }
+            currentTestFileText.clear()
+            repeat(location.lineNumber!!) { currentTestFileText.appendLine() }
             currentTestFileName = null
         }
     }
@@ -182,7 +182,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
                     }
                 }
 
-                currentTestFileContents.appendLine()
+                currentTestFileText.appendLine()
                 lastParsedDirective = parsedDirective.directive
                 return@forEachIndexed
             }
@@ -193,7 +193,7 @@ private fun createSimpleTestCase(testDataFile: File, environment: TestEnvironmen
             fail { "$location: ${TestDirectives.FILE} directive expected after ${TestDirectives.MODULE} directive" }
         }
 
-        currentTestFileContents.appendLine(line)
+        currentTestFileText.appendLine(line)
     }
 
     finishTestFile(forceFinish = true, Location(testDataFile, lineNumber = /* does not matter anymore */ 0))
@@ -249,7 +249,7 @@ private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, 
     var existingPackageDeclarationLine: String? = null
     var existingPackageDeclarationLineNumber: Int? = null
 
-    testFile.contents.runForFirstMeaningfulStatement { lineNumber, line ->
+    testFile.text.runForFirstMeaningfulStatement { lineNumber, line ->
         // First meaningful line.
         val trimmedLine = line.trim()
         if (trimmedLine.startsWith("package ")) {
@@ -272,7 +272,7 @@ private fun fixPackageDeclaration(testFile: TestFile, packageName: PackageName, 
         }
         testFile
     } else
-        testFile.copy(contents = "package $packageName ${testFile.contents}")
+        testFile.copy(text = "package $packageName ${testFile.text}")
 }
 
 private inline fun CharSequence.runForFirstMeaningfulStatement(action: (lineNumber: Int, line: String) -> Unit) {
