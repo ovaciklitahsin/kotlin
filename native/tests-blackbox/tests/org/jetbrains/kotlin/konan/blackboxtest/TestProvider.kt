@@ -148,7 +148,7 @@ private fun createSimpleTestCase(
             )
 
             currentTestFileText.clear()
-            repeat(location.lineNumber!!) { currentTestFileText.appendLine() }
+            repeat(location.lineNumber ?: 0) { currentTestFileText.appendLine() }
             currentTestFileName = null
         }
     }
@@ -212,7 +212,8 @@ private fun createSimpleTestCase(
         currentTestFileText.appendLine(line)
     }
 
-    finishTestFile(forceFinish = true, Location(testDataFile, lineNumber = /* does not matter anymore */ 0))
+    val location = Location(testDataFile)
+    finishTestFile(forceFinish = true, location)
 
     val duplicatedTestFiles = testModules.values.flatMap { it.files }.groupingBy { it.location }.eachCount().filterValues { it > 1 }.keys
     assertTrue(duplicatedTestFiles.isEmpty()) { "$testDataFile: Duplicated test files encountered: $duplicatedTestFiles" }
@@ -221,10 +222,32 @@ private fun createSimpleTestCase(
     testModules.values.initializeModules(findSharedModule)
 
     val registeredDirectives = directivesParser.build()
-    val location = Location(testDataFile)
 
     val freeCompilerArgs = parseFreeCompilerArgs(registeredDirectives, location)
     val outputData = parseOutputData(baseDir = testDataFileDir, registeredDirectives, location)
+
+    val testKind = parseTestKind(registeredDirectives, location)
+    TestCase2(
+        kind = testKind,
+        modules = if (testKind == TestKind.REGULAR) {
+            // Fix package declarations to avoid unintended conflicts between symbols with the same name in different test cases.
+            testModules.values.onEach { testModule ->
+                testModule.files.transformInPlace { testFile -> fixPackageDeclaration(testFile, effectivePackageName, testDataFile) }
+            }
+        } else
+            testModules.values,
+        freeCompilerArgs = freeCompilerArgs,
+        testDataFile = testDataFile,
+        nominalPackageName = effectivePackageName,
+        outputData = outputData,
+        extras = if (testKind == TestKind.STANDALONE_NO_TR) {
+            TestCase2.StandaloneNoTestRunnerExtras(
+                entryPoint = parseEntryPoint(registeredDirectives, location),
+                inputData = parseInputData(baseDir = testDataFileDir, registeredDirectives, location)
+            )
+        } else
+            null
+    )
 
     return when (parseTestKind(registeredDirectives, location)) {
         TestKind.REGULAR -> TestCase.Regular(

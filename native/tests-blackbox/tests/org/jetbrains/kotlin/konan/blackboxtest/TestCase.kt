@@ -89,6 +89,31 @@ internal sealed class TestModule {
     }
 }
 
+/**
+ * A minimal testable unit.
+ *
+ * [modules] - the collection of [TestModule.Individual] modules with [TestFile]s that need to be compiled to run this test.
+ *             Note: There can also be [TestModule.Shared] modules as dependencies of either of [TestModule.Individual] modules.
+ *             See [TestModule.Individual.dependencies] and [TestModule.allDependencyModules] for details.
+ * [testDataFile] - the origin of the test case.
+ * [nominalPackageName] - the unique package name that was computed for this [TestCase2] based on [testDataFile]'s actual path.
+ *                        Note: It depends on the concrete [TestKind] whether the package name will be enforced for the [TestFile]s or not.
+ */
+internal class TestCase2(
+    val kind: TestKind,
+    val modules: Collection<TestModule.Individual>,
+    val freeCompilerArgs: TestCompilerArgs,
+    val testDataFile: File,
+    val nominalPackageName: PackageName,
+    val outputData: String?,
+    val extras: StandaloneNoTestRunnerExtras? = null
+) {
+    class StandaloneNoTestRunnerExtras(val entryPoint: String, val inputData: String?)
+
+    init {
+        assertTrue(extras == null || kind == TestKind.STANDALONE_NO_TR)
+    }
+}
 
 /**
  *         TestCase
