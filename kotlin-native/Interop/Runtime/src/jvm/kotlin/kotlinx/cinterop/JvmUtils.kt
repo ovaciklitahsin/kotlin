@@ -102,12 +102,11 @@ inline fun <reified R : Number> Number.invalidNarrowing(): R {
     throw Error("unable to narrow ${this.javaClass.simpleName} \"${this}\" to ${R::class.java.simpleName}")
 }
 
-fun loadKonanLibrary(name: String) {
+fun loadKonanLibrary(name: String, dir: String = "${KonanHomeProvider.determineKonanHome()}/konan/nativelib") {
     try {
         System.loadLibrary(name)
     } catch (e: UnsatisfiedLinkError) {
         val fullLibraryName = System.mapLibraryName(name)
-        val dir = "${KonanHomeProvider.determineKonanHome()}/konan/nativelib"
         try {
             System.load("$dir/$fullLibraryName")
         } catch (e: UnsatisfiedLinkError) {

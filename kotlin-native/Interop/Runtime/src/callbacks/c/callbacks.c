@@ -112,6 +112,15 @@ JNIEXPORT jlong JNICALL Java_kotlinx_cinterop_JvmCallbacksKt_ffiTypeStruct0(JNIE
 
 /*
  * Class:     kotlinx_cinterop_JvmCallbacksKt
+ * Method:    ffiFreeTypeStruct0
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_kotlinx_cinterop_JvmCallbacksKt_ffiFreeTypeStruct0(JNIEnv *env, jclass cls, jlong ptr) {
+    if (ptr) free((void*)ptr);
+}
+
+/*
+ * Class:     kotlinx_cinterop_JvmCallbacksKt
  * Method:    ffiCreateCif0
  * Signature: (IJJ)J
  */
@@ -120,6 +129,7 @@ JNIEXPORT jlong JNICALL Java_kotlinx_cinterop_JvmCallbacksKt_ffiCreateCif0(JNIEn
     if (res != NULL) {
         ffi_status status = ffi_prep_cif(res, FFI_DEFAULT_ABI, nArgs, (ffi_type*)rType, (ffi_type**)argTypes);
         if (status != FFI_OK) {
+            free(res);
             if (status == FFI_BAD_TYPEDEF) {
                 return -(jlong)1;
             } else if (status == FFI_BAD_ABI) {
@@ -130,6 +140,15 @@ JNIEXPORT jlong JNICALL Java_kotlinx_cinterop_JvmCallbacksKt_ffiCreateCif0(JNIEn
         }
     }
     return (jlong) res;
+}
+
+/*
+ * Class:     kotlinx_cinterop_JvmCallbacksKt
+ * Method:    ffiFreeCif0
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_kotlinx_cinterop_JvmCallbacksKt_ffiFreeCif0(JNIEnv *env, jclass cls, jlong ptr) {
+    if (ptr) free((void*)ptr);
 }
 
 static JavaVM *vm = NULL;
@@ -204,14 +223,31 @@ JNIEXPORT jlong JNICALL Java_kotlinx_cinterop_JvmCallbacksKt_ffiCreateClosure0(J
     void* res;
     ffi_closure *closure = ffi_closure_alloc(sizeof(ffi_closure), &res);
     if (closure == NULL) {
+        (*env)->DeleteGlobalRef(env, userDataGlobalRef);
         return (jlong)0;
     }
     ffi_status status = ffi_prep_closure_loc(closure, (ffi_cif*)ffiCif, ffi_fun, userDataPtr, res);
     if (status != FFI_OK) {
+        (*env)->DeleteGlobalRef(env, userDataGlobalRef);
+        ffi_closure_free(res);
         return -(jlong)1;
     }
 
     return (jlong) res;
+}
+
+/*
+ * Class:     kotlinx_cinterop_JvmCallbacksKt
+ * Method:    ffiFreeClosure0
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_kotlinx_cinterop_JvmCallbacksKt_ffiFreeClosure0(JNIEnv *env, jclass cls, jlong ptr) {
+    if (ptr) {
+        void* userDataPtr = ((ffi_closure*)ptr)->user_data;
+        if (userDataPtr)
+            (*env)->DeleteGlobalRef(env, (jobject)userDataPtr);
+        ffi_closure_free((void*)ptr);
+    }
 }
 
 /*

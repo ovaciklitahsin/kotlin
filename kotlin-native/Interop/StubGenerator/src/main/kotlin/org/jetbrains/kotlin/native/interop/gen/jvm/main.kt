@@ -16,6 +16,8 @@
 
 package org.jetbrains.kotlin.native.interop.gen.jvm
 
+import kotlinx.cinterop.loadKonanLibrary
+import kotlinx.cinterop.usingJvmCInteropCallbacks
 import org.jetbrains.kotlin.konan.TempFiles
 import org.jetbrains.kotlin.konan.exec.Command
 import org.jetbrains.kotlin.konan.util.DefFile
@@ -33,6 +35,7 @@ import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.util.KonanHomeProvider
+import org.jetbrains.kotlin.konan.util.usingNativeMemoryAllocator
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.packageFqName
 import org.jetbrains.kotlin.library.resolver.TopologicalLibraryOrder
@@ -62,22 +65,22 @@ fun main(args: Array<String>) {
     val arguments = FullCInteropArguments()
     arguments.argParser.parse(args)
     val flavorName = arguments.flavor
-    processCLib(flavorName, arguments, InternalInteropOptions(arguments.generated, arguments.natives))
+    processCLibSafe(flavorName, arguments, InternalInteropOptions(arguments.generated, arguments.natives))
 }
 
 fun interop(
         flavor: String, args: Array<String>,
         additionalArgs: InternalInteropOptions
-): Array<String>? = when(flavor) {
-            "jvm", "native" -> {
-                val cinteropArguments = CInteropArguments()
-                cinteropArguments.argParser.parse(args)
-                val platform = KotlinPlatform.values().single { it.name.equals(flavor, ignoreCase = true) }
-                processCLib(platform, cinteropArguments, additionalArgs)
-            }
-            "wasm" -> processIdlLib(args, additionalArgs)
-            else -> error("Unexpected flavor")
-        }
+): Array<String>? = when (flavor) {
+    "jvm", "native" -> {
+        val cinteropArguments = CInteropArguments()
+        cinteropArguments.argParser.parse(args)
+        val platform = KotlinPlatform.values().single { it.name.equals(flavor, ignoreCase = true) }
+        processCLibSafe(platform, cinteropArguments, additionalArgs)
+    }
+    "wasm" -> processIdlLib(args, additionalArgs)
+    else -> error("Unexpected flavor")
+}
 
 // Options, whose values are space-separated and can be escaped.
 val escapedOptions = setOf("-compilerOpts", "-linkerOpts", "-compiler-options", "-linker-options")
@@ -202,6 +205,14 @@ private fun findFilesByGlobs(roots: List<Path>, globs: List<String>): Map<Path, 
             }
     return relativeToRoot
 }
+
+private fun processCLibSafe(flavor: KotlinPlatform, cinteropArguments: CInteropArguments,
+                            additionalArgs: InternalInteropOptions) =
+        usingNativeMemoryAllocator {
+            usingJvmCInteropCallbacks {
+                processCLib(flavor, cinteropArguments, additionalArgs)
+            }
+        }
 
 private fun processCLib(flavor: KotlinPlatform, cinteropArguments: CInteropArguments,
                         additionalArgs: InternalInteropOptions): Array<String>? {
@@ -457,7 +468,7 @@ internal fun prepareTool(target: String?, flavor: KotlinPlatform): ToolConfig {
     val tool = ToolConfig(target, flavor)
     tool.downloadDependencies()
 
-    System.load(tool.libclang)
+    loadKonanLibrary("clang", tool.libclangDir)
 
     return tool
 }
