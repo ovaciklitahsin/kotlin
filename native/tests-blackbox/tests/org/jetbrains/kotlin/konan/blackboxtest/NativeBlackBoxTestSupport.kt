@@ -57,7 +57,7 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
 
             val testRoots: Set<File> = when (val outermostTestMetadata = enclosingTestClass.getAnnotation(TestMetadata::class.java)) {
                 null -> {
-                    enclosingTestClass.declaredClasses.mapNotNullTo(mutableSetOf()) { nestedClass ->
+                    enclosingTestClass.declaredClasses.mapNotNullToSet { nestedClass ->
                         nestedClass.getAnnotation(TestMetadata::class.java)?.testRoot
                     }
                 }
@@ -68,7 +68,7 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
                 0 -> fail { "No test roots found for $enclosingTestClass test class." }
                 1 -> testRoots.first().parentFile
                 else -> {
-                    val baseDirs = testRoots.mapTo(mutableSetOf()) { it.parentFile }
+                    val baseDirs = testRoots.mapToSet { it.parentFile }
                     assertEquals(1, baseDirs.size) {
                         "Controversial base directories computed for test roots for $enclosingTestClass test class: $baseDirs"
                     }

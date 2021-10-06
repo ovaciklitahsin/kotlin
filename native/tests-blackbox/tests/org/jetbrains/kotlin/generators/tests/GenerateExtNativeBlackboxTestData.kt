@@ -40,7 +40,7 @@ internal class ExtTestDataConfig(
     private val sharedModules: String
 ) {
     private val includes = linkedSetOf<String>()
-    private val excludes = mutableSetOf<String>()
+    private val excludes = hashSetOf<String>()
 
     fun include(testDataSubPath: String) {
         includes += testDataSubPath
@@ -218,7 +218,7 @@ private class ExtTestDataFile(
 
     /** Finds the fully-qualified name of the entry point function (aka `fun box(): String`). */
     private fun findEntryPointFunction(): String {
-        val entryPointFunctionFQNs = mutableSetOf<String>()
+        val entryPointFunctionFQNs = hashSetOf<String>()
 
         structure.forEachFile {
             val foundEntryPoints = ENTRY_POINT_FUNCTION_REGEX.findAll(textOfCurrentFile).map { match ->
@@ -528,7 +528,7 @@ private class SharedTestModules {
     val modules = mutableMapOf<String, SharedTestModule>()
 
     fun addFile(moduleName: String, fileName: String, fileText: String) {
-        modules.getOrPut(moduleName) { SharedTestModule() }.files.getOrPut(fileName) { mutableSetOf() } += SharedTestFile(fileText)
+        modules.getOrPut(moduleName) { SharedTestModule() }.files.getOrPut(fileName) { hashSetOf() } += SharedTestFile(fileText)
     }
 
     fun dumpToDir(outputDir: File) {

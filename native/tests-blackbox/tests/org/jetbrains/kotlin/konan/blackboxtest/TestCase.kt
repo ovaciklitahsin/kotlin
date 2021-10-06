@@ -178,13 +178,11 @@ internal class TestCase(
             ?: findSharedModule(name)
             ?: fail { "$testDataFile: Module $name not found" }
 
-        fun Set<String>.findModulesForSymbols() = if (isEmpty()) emptySet() else mapTo(mutableSetOf(), ::findModule)
-
         modules.forEach { module ->
             module.commit() // Save to the file system and release the memory.
             module.testCase = this
-            module.directDependencies = module.directDependencySymbols.findModulesForSymbols()
-            module.directFriends = module.directFriendSymbols.findModulesForSymbols()
+            module.directDependencies = module.directDependencySymbols.mapToSet(::findModule)
+            module.directFriends = module.directFriendSymbols.mapToSet(::findModule)
         }
     }
 }

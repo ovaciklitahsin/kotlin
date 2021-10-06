@@ -57,7 +57,7 @@ private class TestOutput(
                         // Read the line with test status.
                         val testStatus = matcher.groupValues[1]
                         val testName = matcher.groupValues[2]
-                        testStatuses.getOrPut(testStatus) { mutableSetOf() } += testName
+                        testStatuses.getOrPut(testStatus) { hashSetOf() } += testName
                         expectStatusLine = false
                     } else {
                         assertFalse(GTEST_ANY_LINE_REGEX.matches(line)) {
