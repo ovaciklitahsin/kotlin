@@ -75,11 +75,13 @@ internal const val DEFAULT_FILE_NAME = "main.kt"
 internal const val DEFAULT_MODULE_NAME = "default"
 internal const val SUPPORT_MODULE_NAME = "support"
 
-internal fun Set<PackageName>.findCommonPackageName(): PackageName =
-    map { packageName: PackageName ->
+internal fun Set<PackageName>.findCommonPackageName(): PackageName? = when (size) {
+    0 -> null
+    1 -> first()
+    else -> map { packageName: PackageName ->
         packageName.split('.')
     }.reduce { commonPackageNameParts: List<String>, packageNameParts: List<String> ->
-        mutableListOf<String>().apply {
+        ArrayList<String>(kotlin.math.min(commonPackageNameParts.size, packageNameParts.size)).apply {
             val i = commonPackageNameParts.iterator()
             val j = packageNameParts.iterator()
 
@@ -88,7 +90,8 @@ internal fun Set<PackageName>.findCommonPackageName(): PackageName =
                 if (packageNamePart == j.next()) add(packageNamePart) else break
             }
         }
-    }.joinToString(".")
+    }.takeIf { it.isNotEmpty() }?.joinToString(".")
+}
 
 internal fun <T> Collection<T>.toIdentitySet(): Set<T> =
     Collections.newSetFromMap(IdentityHashMap<T, Boolean>()).apply { addAll(this@toIdentitySet) }
@@ -228,5 +231,13 @@ internal inline fun <T, R : Any> Array<out T>.mapNotNullToSet(transform: (T) -> 
 
     val result = hashSetOf<R>()
     mapNotNullTo(result, transform)
+    return result
+}
+
+internal inline fun <T, R> Iterable<T>.flatMapToSet(transform: (T) -> Iterable<R>): Set<R> {
+    if (this is Collection && isEmpty()) return emptySet()
+
+    val result = hashSetOf<R>()
+    flatMapTo(result, transform)
     return result
 }

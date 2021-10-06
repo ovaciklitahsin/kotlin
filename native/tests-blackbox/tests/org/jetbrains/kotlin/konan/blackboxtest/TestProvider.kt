@@ -59,7 +59,7 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
                 when (testCase.kind) {
                     TestKind.STANDALONE, TestKind.STANDALONE_NO_TR -> {
                         // Create a separate compilation per each standalone test case.
-                        compilations[testCase.testDataFile] = compilationFactory.oneTestCaseToExecutable(testCase)
+                        compilations[testCase.testDataFile] = compilationFactory.testCasesToExecutable(listOf(testCase))
                     }
                     TestKind.REGULAR -> {
                         // Group regular test cases by compiler args.
@@ -70,7 +70,7 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
 
             // Now, create compilations per each group of regular test cases.
             regularTestCaseByCompilerArgs.forEach { (_, testCases) ->
-                val compilation = compilationFactory.manyTestCasesToExecutable(testCases)
+                val compilation = compilationFactory.testCasesToExecutable(testCases)
                 testCases.forEach { testCase -> compilations[testCase.testDataFile] = compilation }
             }
 

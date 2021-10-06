@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.konan.blackboxtest
 
 import org.jetbrains.kotlin.konan.blackboxtest.DFSWithoutCycles.topologicalOrder
+import org.jetbrains.kotlin.konan.blackboxtest.TestModule.Companion.allDependencies
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
@@ -147,12 +148,20 @@ internal class TestCase(
 ) {
     val topologicallyOrderedModules: List<TestModule> by lazy {
         // Make sure that there are no cycles between modules, compute the topological order of modules.
-        topologicalOrder<TestModule>(modules, { module ->
+        val topologicallyOrderedModules = topologicalOrder<TestModule>(modules, { module ->
             when (module) {
                 is TestModule.Exclusive -> module.allDependencies + module.allFriends
                 is TestModule.Shared -> emptyList()
             }
         })
+
+        val rootModule = topologicallyOrderedModules.first()
+        assertTrue(rootModule is TestModule.Exclusive) { "Root module is not exclusive module: $rootModule" }
+
+        val orphanedModules = modules - rootModule.allDependencies
+        assertTrue(orphanedModules.isEmpty()) { "There are modules that are inaccessible from the root module: $rootModule, $orphanedModules" }
+
+        topologicallyOrderedModules
     }
 
     class StandaloneNoTestRunnerExtras(val entryPoint: String, val inputData: String?)
