@@ -141,8 +141,8 @@ internal interface TestCompilation {
 }
 
 internal sealed class TestCompilationOutput {
-    class Success(val resultingArtifact: File) : TestCompilationOutput()
-    class Failure(val throwable: Throwable) : TestCompilationOutput()
+    data class Success(val resultingArtifact: File) : TestCompilationOutput()
+    data class Failure(val throwable: Throwable) : TestCompilationOutput()
     object DependencyFailure : TestCompilationOutput()
 }
 

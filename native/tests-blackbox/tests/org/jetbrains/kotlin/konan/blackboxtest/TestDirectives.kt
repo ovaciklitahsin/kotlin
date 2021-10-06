@@ -196,7 +196,7 @@ private fun parseFileBasedDirective(
         ?: fail { "$location: Exactly one file expected in $directive directive: $values" }
     assertTrue(file.isFile) { "$location: File specified in $directive directive does not exist or is not a file: $file" }
 
-    return file.readText(Charsets.UTF_8)
+    return file.readText()
 }
 
 internal class Location(private val testDataFile: File, val lineNumber: Int? = null) {

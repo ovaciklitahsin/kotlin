@@ -47,9 +47,9 @@ internal fun File.makeEmptyDirectory() {
     mkdirs()
 }
 
-internal fun File.writeFileWithLogging(text: String, charset: Charset) {
+internal fun File.writeFileWithLogging(text: String) {
     parentFile.mkdirs()
-    writeText(text, charset)
+    writeText(text)
     println("File written: $this")
 }
 
@@ -62,7 +62,21 @@ internal fun computePackageName(testDataDir: File, testDataFile: File): PackageN
         .resolve(testDataFile.nameWithoutExtension)
         .toPath()
         .map(Path::name)
-        .joinToString(".") { packagePart -> if (packagePart in KEYWORDS) "_${packagePart}_" else packagePart }
+        .joinToString(".") { packagePart ->
+            if (packagePart in KEYWORDS)
+                "_${packagePart}_"
+            else
+                buildString {
+                    packagePart.forEachIndexed { index, ch ->
+                        if (index == 0) when {
+                            ch.isJavaIdentifierStart() -> append(ch)
+                            ch.isJavaIdentifierPart() -> append('_').append(ch)
+                            else -> append('_')
+                        }
+                        else append(if (ch.isJavaIdentifierPart()) ch else '_')
+                    }
+                }
+        }
 }
 
 internal fun getSanitizedFileName(fileName: String): String =

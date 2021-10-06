@@ -158,7 +158,10 @@ internal class TestCase(
         val rootModule = topologicallyOrderedModules.first()
         assertTrue(rootModule is TestModule.Exclusive) { "Root module is not exclusive module: $rootModule" }
 
-        val orphanedModules = modules - rootModule.allDependencies
+        val orphanedModules = modules.toHashSet()
+        orphanedModules.removeAll(rootModule.allDependencies)
+        orphanedModules.remove(rootModule)
+
         assertTrue(orphanedModules.isEmpty()) { "There are modules that are inaccessible from the root module: $rootModule, $orphanedModules" }
 
         topologicallyOrderedModules

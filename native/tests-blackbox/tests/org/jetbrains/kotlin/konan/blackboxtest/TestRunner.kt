@@ -16,7 +16,7 @@ internal fun NativeTest.runAndVerify() {
 
     val process = ProcessBuilder(programArgs).directory(executableFile.parentFile).start()
     runParameters.get<TestRunParameter.WithInputData> {
-        process.outputStream.write(inputData.toByteArray(Charsets.UTF_8))
+        process.outputStream.write(inputData.toByteArray())
         process.outputStream.flush()
     }
 
@@ -103,8 +103,8 @@ private class TestOutput(
 
     private fun waitUntilExecutionFinished() {
         exitCode = process.waitFor()
-        stdOut = process.inputStream.bufferedReader(Charsets.UTF_8).readText()
-        stdErr = process.errorStream.bufferedReader(Charsets.UTF_8).readText()
+        stdOut = process.inputStream.bufferedReader().readText()
+        stdErr = process.errorStream.bufferedReader().readText()
     }
 
     private fun details() = buildString {
