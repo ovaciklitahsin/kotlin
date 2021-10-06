@@ -5,6 +5,9 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.konan.blackboxtest.DFSWithoutCycles.topologicalOrder
+import org.jetbrains.kotlin.storage.LockBasedStorageManager
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import java.io.File
@@ -14,11 +17,47 @@ internal typealias PackageName = String
 /**
  * Represents a single file that will be supplied to the compiler.
  */
-internal data class TestFile<M : TestModule>(
+internal class TestFile<M : TestModule> private constructor(
     val location: File,
-    val text: String,
-    val module: M
-)
+    val module: M,
+    private var state: State
+) {
+    private sealed interface State {
+        object Committed : State
+        class Uncommitted(var text: String) : State
+    }
+
+    fun update(transformation: (String) -> String) {
+        when (val state = state) {
+            is State.Uncommitted -> state.text = transformation(state.text)
+            is State.Committed -> fail { "File $location is already committed." }
+        }
+    }
+
+    // An optimization to release the memory occupied by numerous file texts.
+    fun commit() {
+        state = when (val state = state) {
+            is State.Uncommitted -> {
+                location.parentFile.mkdirs()
+                location.writeText(state.text)
+                State.Committed
+            }
+            is State.Committed -> state
+        }
+    }
+
+    override fun equals(other: Any?) = other === this || (other as? TestFile<*>)?.location?.path == location.path
+    override fun hashCode() = location.path.hashCode()
+    override fun toString() = "TestFile(location=$location, module.name=${module.name}, state=${state::class.java.simpleName})"
+
+    companion object {
+        fun <M : TestModule> createUncommitted(location: File, module: M, text: CharSequence) =
+            TestFile(location, module, State.Uncommitted(text.toString()))
+
+        fun <M : TestModule> createCommitted(location: File, module: M) =
+            TestFile(location, module, State.Committed)
+    }
+}
 
 /**
  * One or more [TestFile]s that are always compiled together.
@@ -27,154 +66,125 @@ internal data class TestFile<M : TestModule>(
  * In certain test modes (ex: [TestMode.ONE_STAGE], [TestMode.TWO_STAGE]) modules represented by [TestModule] are ignored, and
  * all [TestFile]s are compiled together in one shot.
  *
- * [TestModule.Individual] represents a collection of [TestFile]s used exclusively for an individual [TestCase].
+ * [TestModule.Exclusive] represents a collection of [TestFile]s used exclusively for an individual [TestCase].
  * [TestModule.Shared] represents a "shared" module, i.e. the auxiliary module that can be used in multiple [TestCase]s.
  */
 internal sealed class TestModule {
     abstract val name: String
-    abstract val files: List<TestFile<*>>
+    abstract val files: Set<TestFile<*>>
 
-    data class Individual(
+    data class Exclusive(
         override val name: String,
-        val dependencySymbols: Set<String>,
-        val friendSymbols: Set<String>
+        val directDependencySymbols: Set<String>,
+        val directFriendSymbols: Set<String>
     ) : TestModule() {
-        override val files: MutableList<TestFile<Individual>> = mutableListOf()
+        override val files: FailOnDuplicatesSet<TestFile<Exclusive>> = FailOnDuplicatesSet()
 
-        lateinit var dependencies: Set<TestModule>
-        lateinit var friends: Set<TestModule>
-    }
+        lateinit var directDependencies: Set<TestModule>
+        lateinit var directFriends: Set<TestModule>
 
-    data class Shared(override val name: String) : TestModule() {
-        override val files: MutableList<TestFile<Shared>> = mutableListOf()
-    }
+        // N.B. The following two properties throw an exception on attempt to resolve cyclic dependencies.
+        val allDependencies: Set<TestModule> by SM.lazyNeighbors({ directDependencies }, { it.allDependencies })
+        val allFriends: Set<TestModule> by SM.lazyNeighbors({ directFriends }, { it.allFriends })
 
-    companion object {
-        fun newDefaultModule() = Individual(DEFAULT_MODULE_NAME, emptySet(), emptySet())
+        lateinit var testCase: TestCase
 
-        fun Collection<Individual>.initializeModules(findSharedModule: (name: String) -> Shared?) {
-            val mapping: Map</* regular module name */ String, Individual> = toIdentitySet()
-                .groupingBy { module -> module.name }
-                .aggregate { name, _: Individual?, module, isFirst ->
-                    assertTrue(isFirst) { "Multiple test modules with the same name found: $name" }
-                    module
-                }
-
-            fun findModule(name: String): TestModule = mapping[name]
-                ?: findSharedModule(name)
-                ?: fail { "Module $name not found" }
-
-            fun Set<String>.findModulesForSymbols(): Set<TestModule> = mapTo(mutableSetOf(), ::findModule)
-
-            mapping.values.forEach { module ->
-                with(module) {
-                    if (dependencySymbols.isEmpty() && friendSymbols.isEmpty()) {
-                        dependencies = emptySet()
-                        friends = emptySet()
-                    } else {
-                        dependencies = dependencySymbols.findModulesForSymbols()
-                        friends = friendSymbols.findModulesForSymbols()
-                    }
-                }
-            }
+        fun commit() {
+            files.forEach { it.commit() }
         }
 
-        fun Collection<Individual>.allDependencyModules(): Set<TestModule> =
-            DFSWithoutCycles.transitiveClosure<TestModule>(this, { module ->
-                when (module) {
-                    is Individual -> module.dependencies
-                    is Shared -> emptyList()
-                }
-            })
+        fun haveSameSymbols(other: Exclusive) =
+            other.directDependencySymbols == directDependencySymbols && other.directFriendSymbols == directFriendSymbols
+    }
+
+    class Shared(override val name: String) : TestModule() {
+        override val files: FailOnDuplicatesSet<TestFile<Shared>> = FailOnDuplicatesSet()
+    }
+
+    final override fun equals(other: Any?) =
+        other === this || (other is TestModule && other.javaClass == javaClass && other.name == name && other.files == files)
+
+    final override fun hashCode() = (javaClass.hashCode() * 31 + name.hashCode()) * 31 + files.hashCode()
+    final override fun toString() = "${javaClass.canonicalName}[name=$name]"
+
+    companion object {
+        fun newDefaultModule() = Exclusive(DEFAULT_MODULE_NAME, emptySet(), emptySet())
+
+        val TestModule.allDependencies: Set<TestModule>
+            get() = when (this) {
+                is Exclusive -> allDependencies
+                is Shared -> emptySet()
+            }
+
+        val TestModule.allFriends: Set<TestModule>
+            get() = when (this) {
+                is Exclusive -> allFriends
+                is Shared -> emptySet()
+            }
+
+        private val SM = LockBasedStorageManager(TestModule::class.java.name)
     }
 }
 
 /**
  * A minimal testable unit.
  *
- * [modules] - the collection of [TestModule.Individual] modules with [TestFile]s that need to be compiled to run this test.
- *             Note: There can also be [TestModule.Shared] modules as dependencies of either of [TestModule.Individual] modules.
- *             See [TestModule.Individual.dependencies] and [TestModule.allDependencyModules] for details.
+ * [modules] - the collection of [TestModule.Exclusive] modules with [TestFile]s that need to be compiled to run this test.
+ *             Note: There can also be [TestModule.Shared] modules as dependencies of either of [TestModule.Exclusive] modules.
+ *             See [TestModule.Exclusive.allDependencies] for details.
  * [testDataFile] - the origin of the test case.
- * [nominalPackageName] - the unique package name that was computed for this [TestCase2] based on [testDataFile]'s actual path.
+ * [nominalPackageName] - the unique package name that was computed for this [TestCase] based on [testDataFile]'s actual path.
  *                        Note: It depends on the concrete [TestKind] whether the package name will be enforced for the [TestFile]s or not.
  */
-internal class TestCase2(
+internal class TestCase(
     val kind: TestKind,
-    val modules: Collection<TestModule.Individual>,
+    val modules: Set<TestModule.Exclusive>,
     val freeCompilerArgs: TestCompilerArgs,
     val testDataFile: File,
     val nominalPackageName: PackageName,
     val outputData: String?,
     val extras: StandaloneNoTestRunnerExtras? = null
 ) {
+    val topologicallyOrderedModules: List<TestModule> by lazy {
+        // Make sure that there are no cycles between modules, compute the topological order of modules.
+        topologicalOrder<TestModule>(modules, { module ->
+            when (module) {
+                is TestModule.Exclusive -> module.allDependencies + module.allFriends
+                is TestModule.Shared -> emptyList()
+            }
+        })
+    }
+
     class StandaloneNoTestRunnerExtras(val entryPoint: String, val inputData: String?)
 
     init {
-        assertTrue(extras == null || kind == TestKind.STANDALONE_NO_TR)
-    }
-}
-
-/**
- *         TestCase
- *         /      \
- * Composite      Simple
- *    |           /    \
- *    +---> Regular    Standalone
- *                     /        \
- *        WithTestRunner        WithoutTestRunner
- */
-internal sealed interface TestCase {
-    val modules: Collection<TestModule.Individual>
-    val freeCompilerArgs: TestCompilerArgs
-
-    sealed class Simple(
-        override val modules: Collection<TestModule.Individual>,
-        override val freeCompilerArgs: TestCompilerArgs,
-        val testDataFile: File, // The origin of the test case.
-        val outputData: String?
-    ) : TestCase
-
-    class Regular(
-        modules: Collection<TestModule.Individual>,
-        freeCompilerArgs: TestCompilerArgs,
-        testDataFile: File,
-        outputData: String?,
-        val packageName: PackageName
-    ) : Simple(modules, freeCompilerArgs, testDataFile, outputData)
-
-    sealed class Standalone(
-        modules: Collection<TestModule.Individual>,
-        freeCompilerArgs: TestCompilerArgs,
-        testDataFile: File,
-        outputData: String?,
-        val designatorPackageName: PackageName
-    ) : Simple(modules, freeCompilerArgs, testDataFile, outputData) {
-
-        class WithTestRunner(
-            modules: Collection<TestModule.Individual>,
-            freeCompilerArgs: TestCompilerArgs,
-            testDataFile: File,
-            outputData: String?,
-            designatorPackageName: PackageName
-        ) : Standalone(modules, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
-
-        class WithoutTestRunner(
-            modules: Collection<TestModule.Individual>,
-            freeCompilerArgs: TestCompilerArgs,
-            testDataFile: File,
-            val inputData: String?,
-            outputData: String?,
-            designatorPackageName: PackageName,
-            val entryPoint: String
-        ) : Standalone(modules, freeCompilerArgs, testDataFile, outputData, designatorPackageName)
+        assertEquals(extras != null, kind == TestKind.STANDALONE_NO_TR)
     }
 
-    class Composite(regularTestCases: List<Regular>) : TestCase {
-        override val modules: Collection<TestModule.Individual> = regularTestCases.flatMap { it.modules }
-        override val freeCompilerArgs: TestCompilerArgs = regularTestCases.firstOrNull()?.freeCompilerArgs
-            ?: TestCompilerArgs.EMPTY // Assume all compiler args are the same.
-        val testDataFileToPackageNameMapping: Map<File, PackageName> = regularTestCases.associate { it.testDataFile to it.packageName }
-        val testDataFileToOutputDataMapping: Map<File, String?> = regularTestCases.associate { it.testDataFile to it.outputData }
+    fun initialize(findSharedModule: (name: String) -> TestModule.Shared?) {
+        // Check that there are no duplicated files among different modules.
+        val duplicatedFiles = modules.flatMap { it.files }.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        assertTrue(duplicatedFiles.isEmpty()) { "$testDataFile: Duplicated test files encountered: $duplicatedFiles" }
+
+        // Check that there are modules with duplicated names.
+        val exclusiveModules: Map</* regular module name */ String, TestModule.Exclusive> = modules.toIdentitySet()
+            .groupingBy { module -> module.name }
+            .aggregate { name, _: TestModule.Exclusive?, module, isFirst ->
+                assertTrue(isFirst) { "$testDataFile: Multiple test modules with the same name found: $name" }
+                module
+            }
+
+        fun findModule(name: String): TestModule = exclusiveModules[name]
+            ?: findSharedModule(name)
+            ?: fail { "$testDataFile: Module $name not found" }
+
+        fun Set<String>.findModulesForSymbols() = if (isEmpty()) emptySet() else mapTo(mutableSetOf(), ::findModule)
+
+        modules.forEach { module ->
+            module.commit() // Save to the file system and release the memory.
+            module.testCase = this
+            module.directDependencies = module.directDependencySymbols.findModulesForSymbols()
+            module.directFriends = module.directFriendSymbols.findModulesForSymbols()
+        }
     }
 }

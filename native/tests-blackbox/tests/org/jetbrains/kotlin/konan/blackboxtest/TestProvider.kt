@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.konan.blackboxtest
 
 import com.intellij.util.containers.FactoryMap
-import org.jetbrains.kotlin.konan.blackboxtest.TestModule.Companion.initializeModules
 import org.jetbrains.kotlin.test.directives.model.Directive
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
@@ -17,31 +16,66 @@ import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
 import java.io.File
 
-internal class TestProvider(
-    private val testDataFileToTestCaseMapping: Map<File, CompiledTestCase>
-) {
-    fun getTestByTestDataFile(testDataFile: File): NativeTest {
-        val compiledTestCase = testDataFileToTestCaseMapping[testDataFile] ?: fail { "No test binary for test file $testDataFile" }
+internal class TestProvider(environment: TestEnvironment, testCases: Collection<TestCase>) {
+    private val testDataFileToTestCaseMapping = testCases.associateBy { it.testDataFile }
+    private val testDataFileToTestCompilationMapping = computeCompilations(environment, testCases)
 
-        val binary = compiledTestCase.binary // <-- Compilation happens here.
-        val runParameters = when (val testCase = compiledTestCase.testCase) {
-            is TestCase.Standalone.WithoutTestRunner -> listOfNotNull(
-                testCase.inputData?.let(TestRunParameter::WithInputData),
+    fun getTestByTestDataFile(testDataFile: File): NativeTest {
+        val testCase = testDataFileToTestCaseMapping[testDataFile]
+        val testCompilation = testDataFileToTestCompilationMapping[testDataFile]
+
+        if (testCase == null || testCompilation == null)
+            fail { "No test case for $testDataFile" }
+
+        val executableFile = testCompilation.resultingArtifact // <-- Compilation happens here.
+
+        val runParameters = when (testCase.kind) {
+            TestKind.STANDALONE_NO_TR -> listOfNotNull(
+                testCase.extras!!.inputData?.let(TestRunParameter::WithInputData),
                 testCase.outputData?.let(TestRunParameter::WithExpectedOutputData)
             )
-            is TestCase.Standalone.WithTestRunner -> listOfNotNull(
+            TestKind.STANDALONE -> listOfNotNull(
                 TestRunParameter.WithGTestLogger,
                 testCase.outputData?.let(TestRunParameter::WithExpectedOutputData)
             )
-            is TestCase.Composite -> listOfNotNull(
+            TestKind.REGULAR -> listOfNotNull(
                 TestRunParameter.WithGTestLogger,
-                TestRunParameter.WithPackageName(packageName = testCase.testDataFileToPackageNameMapping.getValue(testDataFile)),
-                testCase.testDataFileToOutputDataMapping[testDataFile]?.let(TestRunParameter::WithExpectedOutputData)
+                TestRunParameter.WithPackageName(packageName = testCase.nominalPackageName),
+                testCase.outputData?.let(TestRunParameter::WithExpectedOutputData)
             )
-            is TestCase.Regular -> fail { "Normally unreachable code" }
         }
 
-        return NativeTest(binary, runParameters)
+        return NativeTest(executableFile, runParameters)
+    }
+
+    companion object {
+        private fun computeCompilations(environment: TestEnvironment, testCases: Collection<TestCase>): Map<File, TestCompilation> {
+            val regularTestCaseByCompilerArgs = hashMapOf<TestCompilerArgs, MutableList<TestCase>>()
+            val compilationFactory = TestCompilationFactory(environment)
+
+            val compilations = hashMapOf<File, TestCompilation>()
+
+            testCases.forEach { testCase ->
+                when (testCase.kind) {
+                    TestKind.STANDALONE, TestKind.STANDALONE_NO_TR -> {
+                        // Create a separate compilation per each standalone test case.
+                        compilations[testCase.testDataFile] = compilationFactory.oneTestCaseToExecutable(testCase)
+                    }
+                    TestKind.REGULAR -> {
+                        // Group regular test cases by compiler args.
+                        regularTestCaseByCompilerArgs.getOrPut(testCase.freeCompilerArgs) { mutableListOf() } += testCase
+                    }
+                }
+            }
+
+            // Now, create compilations per each group of regular test cases.
+            regularTestCaseByCompilerArgs.forEach { (_, testCases) ->
+                val compilation = compilationFactory.manyTestCasesToExecutable(testCases)
+                testCases.forEach { testCase -> compilations[testCase.testDataFile] = compilation }
+            }
+
+            return compilations
+        }
     }
 }
 
@@ -55,48 +89,31 @@ internal fun createBlackBoxTestProvider(environment: TestEnvironment): TestProvi
             ?.takeIf { it.isNotEmpty() }
             ?.let { files ->
                 val module = TestModule.Shared(name)
-                files.mapTo(module.files) { file -> TestFile(file, file.readText(Charsets.UTF_8), module) }
+                files.forEach { file -> module.files += TestFile.createCommitted(file, module) }
                 module
             }
     }
 
-    val testDataFileToTestCaseMapping: MutableMap<File, CompiledTestCase> = mutableMapOf()
-    val groupedRegularTestCases: MutableMap<TestCompilerArgs, MutableList<TestCase.Regular>> = mutableMapOf()
-
-    environment.testRoots.roots.forEach { testRoot ->
+    val testCases = environment.testRoots.roots.flatMap { testRoot ->
         testRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
-            .map { testDataFile -> createSimpleTestCase(testDataFile, environment, sharedModules::get) }
-            .forEach { testCase ->
-                when (testCase) {
-                    is TestCase.Standalone -> {
-                        // Add standalone test cases immediately to the mapping.
-                        testDataFileToTestCaseMapping[testCase.testDataFile] = testCase.toCompiledTestCase(environment)
-                    }
-                    is TestCase.Regular -> {
-                        // Group regular test cases by compiler arguments.
-                        groupedRegularTestCases.getOrPut(testCase.freeCompilerArgs) { mutableListOf() } += testCase
-                    }
-                }
+            .map { testDataFile ->
+                createTestCase(
+                    testDataFile = testDataFile,
+                    environment = environment,
+                    findSharedModule = sharedModules::get
+                )
             }
     }
 
-    // Convert regular test cases into composite test cases and add the latter ones to the mapping.
-    groupedRegularTestCases.values.forEach { regularCases ->
-        val compositeTestCase = TestCase.Composite(regularCases).toCompiledTestCase(environment)
-        regularCases.forEach { regularCase ->
-            testDataFileToTestCaseMapping[regularCase.testDataFile] = compositeTestCase
-        }
-    }
-
-    return TestProvider(testDataFileToTestCaseMapping)
+    return TestProvider(environment, testCases)
 }
 
-private fun createSimpleTestCase(
+private fun createTestCase(
     testDataFile: File,
     environment: TestEnvironment,
     findSharedModule: (name: String) -> TestModule.Shared?
-): TestCase.Simple {
+): TestCase {
     val testDataFileDir = testDataFile.parentFile
     val generatedSourcesDir = environment.testSourcesDir
         .resolve(testDataFileDir.relativeTo(environment.testRoots.baseDir))
@@ -104,8 +121,8 @@ private fun createSimpleTestCase(
 
     val effectivePackageName = computePackageName(testDataDir = environment.testRoots.baseDir, testDataFile = testDataFile)
 
-    val testModules = mutableMapOf<String, TestModule.Individual>()
-    var currentTestModule: TestModule.Individual? = null
+    val testModules = mutableMapOf<String, TestModule.Exclusive>()
+    var currentTestModule: TestModule.Exclusive? = null
 
     var currentTestFileName: String? = null
     val currentTestFileText = StringBuilder()
@@ -113,14 +130,11 @@ private fun createSimpleTestCase(
     val directivesParser = RegisteredDirectivesParser(TestDirectives, JUnit5Assertions)
     var lastParsedDirective: Directive? = null
 
-    fun switchTestModule(newTestModule: TestModule.Individual, location: Location): TestModule.Individual {
+    fun switchTestModule(newTestModule: TestModule.Exclusive, location: Location): TestModule.Exclusive {
         // Don't register new test module if there is another one with the same name.
         val testModule = testModules.getOrPut(newTestModule.name) { newTestModule }
-
-        if (testModule !== newTestModule) {
-            assertEquals(testModule, newTestModule) {
-                "$location: Two declarations of the same module with different dependencies found:\n$testModule\n$newTestModule"
-            }
+        assertTrue(testModule === newTestModule || testModule.haveSameSymbols(newTestModule)) {
+            "$location: Two declarations of the same module with different dependencies or friends found:\n$testModule\n$newTestModule"
         }
 
         currentTestModule = testModule
@@ -141,10 +155,10 @@ private fun createSimpleTestCase(
             val fileName = currentTestFileName ?: DEFAULT_FILE_NAME
             val testModule = currentTestModule ?: switchTestModule(TestModule.newDefaultModule(), location)
 
-            testModule.files += TestFile(
+            testModule.files += TestFile.createUncommitted(
                 location = generatedSourcesDir.resolve(fileName),
-                text = currentTestFileText.toString(),
-                module = testModule
+                module = testModule,
+                text = currentTestFileText
             )
 
             currentTestFileText.clear()
@@ -215,68 +229,37 @@ private fun createSimpleTestCase(
     val location = Location(testDataFile)
     finishTestFile(forceFinish = true, location)
 
-    val duplicatedTestFiles = testModules.values.flatMap { it.files }.groupingBy { it.location }.eachCount().filterValues { it > 1 }.keys
-    assertTrue(duplicatedTestFiles.isEmpty()) { "$testDataFile: Duplicated test files encountered: $duplicatedTestFiles" }
-
-    // Initialize module dependencies.
-    testModules.values.initializeModules(findSharedModule)
-
     val registeredDirectives = directivesParser.build()
 
     val freeCompilerArgs = parseFreeCompilerArgs(registeredDirectives, location)
     val outputData = parseOutputData(baseDir = testDataFileDir, registeredDirectives, location)
-
     val testKind = parseTestKind(registeredDirectives, location)
-    TestCase2(
+
+    if (testKind == TestKind.REGULAR) {
+        // Fix package declarations to avoid unintended conflicts between symbols with the same name in different test cases.
+        testModules.values.forEach { testModule ->
+            testModule.files.forEach { testFile -> fixPackageDeclaration(testFile, effectivePackageName, testDataFile) }
+        }
+    }
+
+    val testCase = TestCase(
         kind = testKind,
-        modules = if (testKind == TestKind.REGULAR) {
-            // Fix package declarations to avoid unintended conflicts between symbols with the same name in different test cases.
-            testModules.values.onEach { testModule ->
-                testModule.files.transformInPlace { testFile -> fixPackageDeclaration(testFile, effectivePackageName, testDataFile) }
-            }
-        } else
-            testModules.values,
+        modules = testModules.values.toSet(),
         freeCompilerArgs = freeCompilerArgs,
         testDataFile = testDataFile,
         nominalPackageName = effectivePackageName,
         outputData = outputData,
         extras = if (testKind == TestKind.STANDALONE_NO_TR) {
-            TestCase2.StandaloneNoTestRunnerExtras(
+            TestCase.StandaloneNoTestRunnerExtras(
                 entryPoint = parseEntryPoint(registeredDirectives, location),
                 inputData = parseInputData(baseDir = testDataFileDir, registeredDirectives, location)
             )
         } else
             null
     )
+    testCase.initialize(findSharedModule)
 
-    return when (parseTestKind(registeredDirectives, location)) {
-        TestKind.REGULAR -> TestCase.Regular(
-            // Fix package declarations to avoid unintended conflicts between symbols with the same name in different test cases.
-            modules = testModules.values.onEach { testModule ->
-                testModule.files.transformInPlace { testFile -> fixPackageDeclaration(testFile, effectivePackageName, testDataFile) }
-            },
-            freeCompilerArgs = freeCompilerArgs,
-            testDataFile = testDataFile,
-            outputData = outputData,
-            packageName = effectivePackageName
-        )
-        TestKind.STANDALONE -> TestCase.Standalone.WithTestRunner(
-            modules = testModules.values,
-            freeCompilerArgs = freeCompilerArgs,
-            testDataFile = testDataFile,
-            outputData = outputData,
-            designatorPackageName = effectivePackageName
-        )
-        TestKind.STANDALONE_NO_TR -> TestCase.Standalone.WithoutTestRunner(
-            modules = testModules.values,
-            freeCompilerArgs = freeCompilerArgs,
-            testDataFile = testDataFile,
-            inputData = parseInputData(baseDir = testDataFileDir, registeredDirectives, location),
-            outputData = outputData,
-            designatorPackageName = effectivePackageName,
-            entryPoint = parseEntryPoint(registeredDirectives, location)
-        )
-    }
+    return testCase
 }
 
 private fun CharSequence.hasAnythingButComments(): Boolean {
@@ -286,14 +269,14 @@ private fun CharSequence.hasAnythingButComments(): Boolean {
 }
 
 private fun fixPackageDeclaration(
-    testFile: TestFile<TestModule.Individual>,
+    testFile: TestFile<TestModule.Exclusive>,
     packageName: PackageName,
     testDataFile: File
-): TestFile<TestModule.Individual> {
+) = testFile.update { text ->
     var existingPackageDeclarationLine: String? = null
     var existingPackageDeclarationLineNumber: Int? = null
 
-    testFile.text.runForFirstMeaningfulStatement { lineNumber, line ->
+    text.runForFirstMeaningfulStatement { lineNumber, line ->
         // First meaningful line.
         val trimmedLine = line.trim()
         if (trimmedLine.startsWith("package ")) {
@@ -302,7 +285,7 @@ private fun fixPackageDeclaration(
         }
     }
 
-    return if (existingPackageDeclarationLine != null) {
+    if (existingPackageDeclarationLine != null) {
         val existingPackageName = existingPackageDeclarationLine!!.substringAfter("package ").trimStart()
         assertTrue(
             existingPackageName == packageName
@@ -314,9 +297,9 @@ private fun fixPackageDeclaration(
             "$location: Invalid package name declaration found: $existingPackageDeclarationLine\nExpected: package $packageName"
 
         }
-        testFile
+        text
     } else
-        testFile.copy(text = "package $packageName ${testFile.text}")
+        "package $packageName $text"
 }
 
 private inline fun CharSequence.runForFirstMeaningfulStatement(action: (lineNumber: Int, line: String) -> Unit) {

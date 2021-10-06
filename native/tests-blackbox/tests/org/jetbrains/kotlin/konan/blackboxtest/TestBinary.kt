@@ -8,8 +8,6 @@ package org.jetbrains.kotlin.konan.blackboxtest
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import java.io.File
 
-internal class TestBinary(val executableFile: File)
-
 internal sealed interface TestRunParameter {
     fun applyTo(programArgs: MutableList<String>)
 
@@ -35,7 +33,7 @@ internal sealed interface TestRunParameter {
 }
 
 internal class NativeTest(
-    val binary: TestBinary,
+    val executableFile: File,
     val runParameters: List<TestRunParameter>
 )
 

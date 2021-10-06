@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.konan.blackboxtest
 
 import org.jetbrains.kotlin.renderer.KeywordStringsGenerated.KEYWORDS
+import org.jetbrains.kotlin.storage.NotNullLazyValue
+import org.jetbrains.kotlin.storage.StorageManager
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import org.jetbrains.kotlin.utils.DFS
@@ -14,6 +16,8 @@ import java.nio.charset.Charset
 import java.nio.file.Path
 import java.util.*
 import kotlin.io.path.name
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
 
 internal fun File.deleteRecursivelyWithLogging() {
     if (exists()) {
@@ -89,48 +93,124 @@ internal fun Set<PackageName>.findCommonPackageName(): PackageName =
 internal fun <T> Collection<T>.toIdentitySet(): Set<T> =
     Collections.newSetFromMap(IdentityHashMap<T, Boolean>()).apply { addAll(this@toIdentitySet) }
 
-internal inline fun <reified T> MutableList<T>.transformInPlace(transformation: (T) -> T): MutableList<T> {
-    for (i in indices) {
-        this[i] = transformation(this[i])
+internal class FailOnDuplicatesSet<E : Any> : Set<E> {
+    private val uniqueElements: MutableSet<E> = hashSetOf()
+
+    operator fun plusAssign(element: E) {
+        assertTrue(uniqueElements.add(element)) { "An attempt to add already existing element: $element" }
     }
-    return this
+
+    override val size get() = uniqueElements.size
+    override fun isEmpty() = uniqueElements.isEmpty()
+    override fun contains(element: E) = element in uniqueElements
+    override fun containsAll(elements: Collection<E>) = uniqueElements.containsAll(elements)
+    override fun iterator(): Iterator<E> = uniqueElements.iterator()
+    override fun equals(other: Any?) = (other as? FailOnDuplicatesSet<*>)?.uniqueElements == uniqueElements
+    override fun hashCode() = uniqueElements.hashCode()
 }
 
 internal object DFSWithoutCycles {
-    fun <N : Any> reverseTopologicalOrder(
-        nodes: Iterable<N>,
+    fun <N : Any> topologicalOrder(
+        startingNodes: Iterable<N>,
         getNeighbors: (N) -> Iterable<N>,
         onCycleDetected: (Iterable<N>) -> Nothing = DEFAULT_CYCLE_HANDLER
-    ): List<N> = transitiveClosure(nodes, getNeighbors, onCycleDetected).reversed()
+    ): List<N> {
+        val handler = TopologicalOrderNodeHandler(TransitiveClosureNodeHandler(emptyList(), getNeighbors, onCycleDetected))
+        startingNodes.forEach { node -> DFS.doDfs(node, handler, handler, handler) }
+        return handler.result()
+    }
 
     fun <N : Any> transitiveClosure(
-        nodes: Iterable<N>,
+        prohibitedNodes: Iterable<N>,
+        startingNodes: Iterable<N>,
         getNeighbors: (N) -> Iterable<N>,
         onCycleDetected: (Iterable<N>) -> Nothing = DEFAULT_CYCLE_HANDLER
     ): Set<N> {
-        val visitedNodes = linkedMapOf<N, State>()
-
-        val visitHandler = DFS.Visited<N> { true }
-        val nodeHandler = object : DFS.AbstractNodeHandler<N, Nothing>() {
-            override fun beforeChildren(current: N) = when (visitedNodes[current]) {
-                null -> {
-                    visitedNodes[current] = State.VISITING
-                    true
-                }
-                State.VISITED -> false
-                State.VISITING -> onCycleDetected(visitedNodes.keys.dropWhile { it != current })
-            }
-
-            override fun afterChildren(current: N) = check(visitedNodes.put(current, State.VISITED) == State.VISITING)
-            override fun result() = error("Not supposed to be called")
-        }
-
-        nodes.forEach { node -> DFS.doDfs(node, getNeighbors, visitHandler, nodeHandler) }
-
-        return visitedNodes.keys
+        val handler = TransitiveClosureNodeHandler(prohibitedNodes, getNeighbors, onCycleDetected)
+        startingNodes.forEach { node -> DFS.doDfs(node, handler, handler, handler) }
+        return handler.result()
     }
 
-    private enum class State { VISITING, VISITED }
+    private class TransitiveClosureNodeHandler<N : Any>(
+        prohibitedNodes: Iterable<N>, // Not included into transitive closure itself but are taken into account during cycle detection.
+        private val getNeighbors: (N) -> Iterable<N>,
+        private val onCycleDetected: (Iterable<N>) -> Nothing
+    ) : DFS.Visited<N>, DFS.Neighbors<N>, DFS.NodeHandler<N, Set<N>> {
+        private enum class State { PROHIBITED, VISITING, VISITED }
+
+        private val visitedNodes: MutableMap<N, State> = prohibitedNodes.associateWithTo(linkedMapOf()) { State.PROHIBITED }
+
+        override fun checkAndMarkVisited(current: N) = true
+        override fun getNeighbors(current: N) = getNeighbors.invoke(current)
+
+        override fun beforeChildren(current: N) = when (visitedNodes[current]) {
+            null -> {
+                visitedNodes[current] = State.VISITING
+                true
+            }
+            State.VISITED -> false
+            State.VISITING -> onCycleDetected(only(State.VISITING).dropWhile { it != current })
+            State.PROHIBITED -> onCycleDetected(only(State.VISITING) + current)
+        }
+
+        override fun afterChildren(current: N) = check(visitedNodes.put(current, State.VISITED) == State.VISITING)
+
+        override fun result() = only(State.VISITED)
+
+        private fun only(state: State) = visitedNodes.filterValues { it == state }.keys
+    }
+
+    private class TopologicalOrderNodeHandler<N : Any>(
+        private val transitiveClosureHandler: TransitiveClosureNodeHandler<N>
+    ) : DFS.Visited<N> by transitiveClosureHandler, DFS.Neighbors<N> by transitiveClosureHandler, DFS.NodeHandler<N, List<N>> {
+        private val orderedNodes = LinkedList<N>()
+
+        override fun beforeChildren(current: N) = transitiveClosureHandler.beforeChildren(current)
+
+        override fun afterChildren(current: N) {
+            transitiveClosureHandler.afterChildren(current)
+            orderedNodes.addFirst(current)
+        }
+
+        override fun result(): List<N> = orderedNodes
+    }
 
     private val DEFAULT_CYCLE_HANDLER: (Iterable<*>) -> Nothing = { error("Cycle detected between nodes: $it") }
+}
+
+internal fun <N : Any> StorageManager.lazyNeighbors(
+    directNeighbors: () -> Set<N>,
+    computeNeighbors: (N) -> Set<N>,
+    describe: (N) -> String = { it.toString() }
+): ReadOnlyProperty<N, Set<N>> = object : ReadOnlyProperty<N, Set<N>> {
+    private val lazyValue: NotNullLazyValue<Set<N>> = this@lazyNeighbors.createLazyValue(
+        computable = {
+            val neighbors = directNeighbors()
+            if (neighbors.isEmpty())
+                emptySet()
+            else
+                hashSetOf<N>().apply {
+                    addAll(neighbors)
+                    neighbors.forEach { neighbor -> addAll(computeNeighbors(neighbor)) }
+                }
+        },
+        onRecursiveCall = { throw CyclicNeighborsException() })
+
+    override fun getValue(thisRef: N, property: KProperty<*>): Set<N> = try {
+        lazyValue.invoke()
+    } catch (e: CyclicNeighborsException) {
+        throw e.trace("Property ${property.name} of ${describe(thisRef)}")
+    }
+}
+
+internal class CyclicNeighborsException : Exception() {
+    private val backtrace = mutableListOf<String>()
+
+    fun trace(element: String) = apply { backtrace += element }
+
+    override val message
+        get() = buildString {
+            appendLine("Cyclic neighbors detected. Backtrace (${backtrace.size} elements):")
+            backtrace.joinTo(this, separator = "\n")
+        }
 }

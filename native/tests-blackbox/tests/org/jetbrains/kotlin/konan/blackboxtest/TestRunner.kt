@@ -11,10 +11,10 @@ import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import kotlin.properties.Delegates
 
 internal fun NativeTest.runAndVerify() {
-    val programArgs = mutableListOf<String>(binary.executableFile.path)
+    val programArgs = mutableListOf<String>(executableFile.path)
     runParameters.forEach { it.applyTo(programArgs) }
 
-    val process = ProcessBuilder(programArgs).directory(binary.executableFile.parentFile).start()
+    val process = ProcessBuilder(programArgs).directory(executableFile.parentFile).start()
     runParameters.get<TestRunParameter.WithInputData> {
         process.outputStream.write(inputData.toByteArray(Charsets.UTF_8))
         process.outputStream.flush()
