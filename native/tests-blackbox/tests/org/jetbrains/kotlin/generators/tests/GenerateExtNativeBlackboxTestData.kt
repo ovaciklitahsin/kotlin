@@ -129,7 +129,8 @@ private class ExtTestDataFile(
         patchFullyQualifiedNamesOfDeclarations()
         makeMutableObjects()
         val entryPointFunctionFQN = findEntryPointFunction()
-        generateTestLauncher(entryPointFunctionFQN)
+        val optInAnnotations = findFileLevelOptInAnnotations()
+        generateTestLauncher(entryPointFunctionFQN, optInAnnotations)
 
         val relativeFile = testDataFile.relativeTo(testDataSourceDir)
         val destinationFile = testDataDestinationDir.resolve(relativeFile)
@@ -183,6 +184,7 @@ private class ExtTestDataFile(
                         inMultilineComment = true
                 }
                 trimmedLine.startsWith("//") -> Unit
+                trimmedLine.startsWith("@file:") -> Unit
                 trimmedLine.isEmpty() -> Unit
                 else -> {
                     val buffer = StringBuilder()
@@ -246,8 +248,15 @@ private class ExtTestDataFile(
         }
     }
 
+    /** Find all file-level opt-in annotations. */
+    private fun findFileLevelOptInAnnotations(): Set<String> {
+        val annotations = hashSetOf<String>()
+        structure.forEachFile { FILE_LEVEL_OPT_IN_ANNOTATION_REGEX.findAll(textOfCurrentFile).mapTo(annotations) { it.groupValues[1] } }
+        return annotations
+    }
+
     /** Patch fully-qualified names of declarations to conform to  */
-    fun patchFullyQualifiedNamesOfDeclarations() {
+    private fun patchFullyQualifiedNamesOfDeclarations() {
         structure.forEachFile {
             val result = FULLY_QUALIFIED_REFERENCE_EXPRESSION_REGEX.replace(textOfCurrentFile) { match ->
                 val fullyQualifiedName = match.groupValues[2]
@@ -289,19 +298,29 @@ private class ExtTestDataFile(
     }
 
     /** Adds a wrapper to run it as Kotlin test. */
-    private fun generateTestLauncher(entryPointFunctionFQN: String) {
-        structure.addFileToMainModule(
-            fileName = "__launcher__.kt",
-            text = """
-                package ${settings.effectivePackageName}
-        
-                @kotlin.test.Test
-                fun runTest() {
-                    val result = $entryPointFunctionFQN()
-                    kotlin.test.assertEquals("OK", result, "Test failed with: ${'$'}result")
-                }
-            """.trimIndent()
-        )
+    private fun generateTestLauncher(entryPointFunctionFQN: String, optInAnnotations: Set<String>) {
+        val fileText = buildString {
+            if (optInAnnotations.isNotEmpty()) {
+                optInAnnotations.forEach(this::appendLine)
+                appendLine()
+            }
+
+            append("package ").appendLine(settings.effectivePackageName)
+            appendLine()
+
+            append(
+                """
+                    @kotlin.test.Test
+                    fun runTest() {
+                        val result = $entryPointFunctionFQN()
+                        kotlin.test.assertEquals("OK", result, "Test failed with: ${'$'}result")
+                    }
+             
+                """.trimIndent()
+            )
+        }
+
+        structure.addFileToMainModule(fileName = "__launcher__.kt", text = fileText)
     }
 
     companion object {
@@ -337,6 +356,7 @@ private class ExtTestDataFile(
         private val OBJECT_REGEX = Regex("^\\s*((private|public|internal)\\s+)?object\\s+[a-zA-Z_].*")
         private val COMPANION_OBJECT_REGEX = Regex("^\\s*((private|public|internal)\\s+)?companion\\s+object.*")
         private val ENTRY_POINT_FUNCTION_REGEX = Regex("(?m)^fun\\s+(box)\\s*\\(\\s*\\)")
+        private val FILE_LEVEL_OPT_IN_ANNOTATION_REGEX = Regex("(?m)^(@file:OptIn\\([a-zA-Z0-9_\\.\\:]+\\))$")
         private val FULLY_QUALIFIED_REFERENCE_EXPRESSION_REGEX =
             Regex("(?m)([^a-zA-Z0-9_\\.])([a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)+)")
 

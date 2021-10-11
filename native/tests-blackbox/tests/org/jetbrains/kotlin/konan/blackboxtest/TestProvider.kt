@@ -312,6 +312,7 @@ private inline fun CharSequence.runForFirstMeaningfulStatement(action: (lineNumb
             trimmedLine.startsWith("/*") -> inMultilineComment = true
             trimmedLine.isEmpty() -> Unit
             trimmedLine.startsWith("//") -> Unit
+            trimmedLine.startsWith("@file:") -> Unit
             else -> {
                 action(lineNumber, line)
                 break
