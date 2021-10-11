@@ -400,15 +400,15 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         files.forEach { file ->
             if (!file.module.isSupport || !skipSupportModule) {
                 val handler = object : CurrentFileHandler {
-                    override var textOfCurrentFile: String
+                    override var textOfCurrentFile
                         get() = file.text
                         set(value) {
                             file.text = value
                         }
 
                     override val packageNameOfCurrentFile = object : CurrentFileHandler.PackageNameHandler {
-                        override val originalPackageName: PackageName get() = file.originalPackageName ?: fail { "Package name not set yet" }
-                        override val patchedPackageName: PackageName get() = file.patchedPackageName ?: fail { "Package name not set yet" }
+                        override val originalPackageName get() = file.originalPackageName ?: fail { "Package name not set yet" }
+                        override val patchedPackageName get() = file.patchedPackageName ?: fail { "Package name not set yet" }
                         override val isSet get() = file.originalPackageName != null && file.patchedPackageName != null
 
                         override fun set(originalPackageName: PackageName, patchedPackageName: PackageName) {
