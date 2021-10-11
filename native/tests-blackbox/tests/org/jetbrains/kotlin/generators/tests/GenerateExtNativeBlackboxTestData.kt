@@ -174,7 +174,7 @@ private class ExtTestDataFile(
     private fun stampPackageNames() {
         var inMultilineComment = false
 
-        structure.transformEachFileByLines { line ->
+        structure.transformEachFileByLines(skipSupportModule = false) { line ->
             val trimmedLine = line.trim()
             when {
                 inMultilineComment -> inMultilineComment = !trimmedLine.endsWith("*/")
@@ -192,7 +192,7 @@ private class ExtTestDataFile(
                         if (packageStatementMatch != null) {
                             // If the first meaningful statement within the next file is a package declaration, then patch it.
                             val existingPackageName = packageStatementMatch.groupValues[1]
-                            return@transformEachFileByLines if (existingPackageName.isKotlinPackageName()) {
+                            return@transformEachFileByLines if (existingPackageName.isKotlinPackageName() || existingPackageName.isHelpersPackageName()) {
                                 packageNameOfCurrentFile.set(existingPackageName)
                                 line
                             } else {
@@ -345,6 +345,8 @@ private class ExtTestDataFile(
 }
 
 private fun String.isKotlinPackageName() = this == "kotlin" || startsWith("kotlin.")
+private fun String.isHelpersPackageName() = this == "helpers" || startsWith("helpers.")
+
 private fun String.isKotlinImportQualifier() = startsWith("kotlin.")
 private fun String.isHelpersImportQualifier() = startsWith("helpers.")
 
@@ -394,9 +396,9 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
 
     val directives: Directives get() = factory.directives
 
-    inline fun forEachFile(action: CurrentFileHandler.() -> Unit) {
+    inline fun forEachFile(skipSupportModule: Boolean = true, action: CurrentFileHandler.() -> Unit) {
         files.forEach { file ->
-            if (!file.module.isSupport) {
+            if (!file.module.isSupport || !skipSupportModule) {
                 val handler = object : CurrentFileHandler {
                     override var textOfCurrentFile: String
                         get() = file.text
@@ -431,8 +433,8 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         }
     }
 
-    inline fun transformEachFileByLines(transform: CurrentFileHandler.(line: String) -> String?) {
-        forEachFile {
+    inline fun transformEachFileByLines(skipSupportModule: Boolean = true, transform: CurrentFileHandler.(line: String) -> String?) {
+        forEachFile(skipSupportModule) {
             textOfCurrentFile = textOfCurrentFile.transformByLines { line -> transform(line) }
         }
     }
