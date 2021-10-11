@@ -10,14 +10,6 @@ import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 internal inline fun String.transformByLines(transform: (String) -> String?): String =
     lines().mapNotNull(transform).joinToString("\n")
 
-internal fun String.insertAfterIndentation(insertion: String): String {
-    val nonWhitespaceCharIndex = indexOfFirst { !it.isWhitespace() }
-    return when {
-        nonWhitespaceCharIndex > 0 -> insert(nonWhitespaceCharIndex, insertion)
-        else -> insertion + this
-    }
-}
-
 internal fun String.insert(insertionIndex: Int, insertion: String): String {
     assertTrue(insertionIndex in 0 until length) { "Bad insertion index $insertionIndex for string [$this]." }
     return substring(0, insertionIndex) + insertion + substring(insertionIndex)

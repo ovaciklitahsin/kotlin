@@ -126,6 +126,7 @@ private class ExtTestDataFile(
         removeAllDirectives()
         removeDiagnosticParameters()
         stampPackageNames()
+        patchFullyQualifiedNamesOfDeclarations()
         makeMutableObjects()
         val entryPointFunctionFQN = findEntryPointFunction()
         generateTestLauncher(entryPointFunctionFQN)
@@ -192,16 +193,16 @@ private class ExtTestDataFile(
                             // If the first meaningful statement within the next file is a package declaration, then patch it.
                             val existingPackageName = packageStatementMatch.groupValues[1]
                             return@transformEachFileByLines if (existingPackageName.isKotlinPackageName()) {
-                                packageNameOfCurrentFile.packageName = existingPackageName
+                                packageNameOfCurrentFile.set(existingPackageName)
                                 line
                             } else {
-                                packageNameOfCurrentFile.packageName = "${settings.effectivePackageName}.$existingPackageName"
+                                packageNameOfCurrentFile.set(existingPackageName, "${settings.effectivePackageName}.$existingPackageName")
                                 line.insert(packageStatementMatch.groups[1]!!.range.first, "${settings.effectivePackageName}.")
                             }
                         } else {
                             // It might be anything else. Need to insert a package statement and continue.
-                            packageNameOfCurrentFile.packageName = settings.effectivePackageName
-                            buffer.append(line.computeIndentation()).appendLine("package ${settings.effectivePackageName}").appendLine()
+                            packageNameOfCurrentFile.set("", settings.effectivePackageName)
+                            buffer.appendLine("package ${settings.effectivePackageName}").appendLine()
                         }
                     }
 
@@ -230,12 +231,12 @@ private class ExtTestDataFile(
 
         structure.forEachFile {
             val foundEntryPoints = ENTRY_POINT_FUNCTION_REGEX.findAll(textOfCurrentFile).map { match ->
-                "${packageNameOfCurrentFile.packageName}.${match.groupValues[1]}"
+                "${packageNameOfCurrentFile.patchedPackageName}.${match.groupValues[1]}"
             }.toList()
 
             if (foundEntryPoints.isNotEmpty()) {
                 entryPointFunctionFQNs += foundEntryPoints
-                markCurrentModuleAsMain()
+                moduleOfCurrentFile.markAsMain()
             }
         }
 
@@ -245,13 +246,43 @@ private class ExtTestDataFile(
         }
     }
 
-    /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION_PLUS_SPACE] to make them mutable. */
+    /** Patch fully-qualified names of declarations to conform to  */
+    fun patchFullyQualifiedNamesOfDeclarations() {
+        structure.forEachFile {
+            val result = FULLY_QUALIFIED_REFERENCE_EXPRESSION_REGEX.replace(textOfCurrentFile) { match ->
+                val fullyQualifiedName = match.groupValues[2]
+                val fullyQualifiedNameParts = fullyQualifiedName.split('.')
+
+                for (i in 1 until fullyQualifiedNameParts.size) {
+                    val subPackageName = fullyQualifiedNameParts.subList(0, i)
+
+                    val patchedPackageName = testCaseOfCurrentFile.patchedPackagesMapping[subPackageName]
+                    if (patchedPackageName != null) {
+                        val replacementOffset = subPackageName.sumOf { it.length + /* for dot character */ 1 }
+                        val patchedFullyQualifiedName = patchedPackageName + "." + fullyQualifiedName.substring(replacementOffset)
+                        val prefix = match.groupValues[1]
+                        return@replace prefix + patchedFullyQualifiedName
+                    }
+                }
+
+                match.value
+            }
+
+            textOfCurrentFile = result
+        }
+    }
+
+    /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
     private fun makeMutableObjects() {
         structure.transformEachFileByLines { line ->
             // Find object declarations and companion objects
             // FIXME: find only those that have vars inside
             if (OBJECT_REGEX.matches(line) || COMPANION_OBJECT_REGEX.matches(line))
-                line.insertAfterIndentation(THREAD_LOCAL_ANNOTATION_PLUS_SPACE)
+                buildString {
+                    append(line.computeIndentation()).append(THREAD_LOCAL_ANNOTATION).appendLine()
+                    append(line)
+
+                }
             else
                 line
         }
@@ -266,7 +297,7 @@ private class ExtTestDataFile(
         
                 @kotlin.test.Test
                 fun runTest() {
-                    val result: String = $entryPointFunctionFQN()
+                    val result = $entryPointFunctionFQN()
                     kotlin.test.assertEquals("OK", result, "Test failed with: ${'$'}result")
                 }
             """.trimIndent()
@@ -303,11 +334,13 @@ private class ExtTestDataFile(
         private val DIAGNOSTIC_REGEX = Regex("<!.*?!>(.*?)<!>")
         private val PACKAGE_STATEMENT_REGEX = Regex("^\\s*package\\s+([^\\s;/]+)")
         private val IMPORT_STATEMENT_REGEX = Regex("^\\s*import\\s+([^\\s;/]+)")
-        private val OBJECT_REGEX = Regex("^\\s*(private|public|internal)?\\s*object [a-zA-Z_][a-zA-Z0-9_]*\\s*.*")
-        private val COMPANION_OBJECT_REGEX = Regex("^\\s*(private|public|internal)?\\s*companion object.*")
+        private val OBJECT_REGEX = Regex("^\\s*((private|public|internal)\\s+)?object\\s+[a-zA-Z_].*")
+        private val COMPANION_OBJECT_REGEX = Regex("^\\s*((private|public|internal)\\s+)?companion\\s+object.*")
         private val ENTRY_POINT_FUNCTION_REGEX = Regex("(?m)^fun\\s+(box)\\s*\\(\\s*\\)")
+        private val FULLY_QUALIFIED_REFERENCE_EXPRESSION_REGEX =
+            Regex("(?m)([^a-zA-Z0-9_\\.])([a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)+)")
 
-        private const val THREAD_LOCAL_ANNOTATION_PLUS_SPACE = "@kotlin.native.ThreadLocal "
+        private const val THREAD_LOCAL_ANNOTATION = "@kotlin.native.ThreadLocal"
     }
 }
 
@@ -328,6 +361,20 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
     private val factory = TestFileFactory()
     private val modules = mutableMapOf<String, TestModule>()
     private val files = mutableListOf<TestFile>()
+
+    private val patchedPackagesMapping: Map</* package name parts */ List<String>, PackageName> by lazy {
+        files.associate { file ->
+            val originalPackageName = file.originalPackageName
+            val patchedPackageName = file.patchedPackageName
+
+            if (originalPackageName == null || patchedPackageName == null)
+                fail { "Package name not evaluated for file yet: $file" }
+
+            originalPackageName to patchedPackageName
+        }.mapKeys { (originalPackageName, _) ->
+            originalPackageName.split('.')
+        }
+    }
 
     init {
         val generatedFiles = TestFiles.createTestFiles(DEFAULT_FILE_NAME, originalTestDataFile.readText(), factory)
@@ -351,24 +398,31 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         files.forEach { file ->
             if (!file.module.isSupport) {
                 val handler = object : CurrentFileHandler {
-                    override val packageNameOfCurrentFile = object : CurrentFileHandler.PackageNameHandler {
-                        override var packageName: PackageName
-                            get() = file.packageName ?: fail { "Package name not set yet" }
-                            set(value) = when (file.packageName) {
-                                null, value -> file.packageName = value
-                                else -> fail { "Package name redeclaration. Old: ${file.packageName}, new: $value" }
-                            }
-                        override val isSet get() = file.packageName != null
-                    }
-
                     override var textOfCurrentFile: String
                         get() = file.text
                         set(value) {
                             file.text = value
                         }
 
-                    override fun markCurrentModuleAsMain() {
-                        file.module.isMain = true
+                    override val packageNameOfCurrentFile = object : CurrentFileHandler.PackageNameHandler {
+                        override val originalPackageName: PackageName get() = file.originalPackageName ?: fail { "Package name not set yet" }
+                        override val patchedPackageName: PackageName get() = file.patchedPackageName ?: fail { "Package name not set yet" }
+                        override val isSet get() = file.originalPackageName != null && file.patchedPackageName != null
+
+                        override fun set(originalPackageName: PackageName, patchedPackageName: PackageName) {
+                            file.originalPackageName = originalPackageName
+                            file.patchedPackageName = patchedPackageName
+                        }
+                    }
+
+                    override val moduleOfCurrentFile = object : CurrentFileHandler.ModuleHandler {
+                        override fun markAsMain() {
+                            file.module.isMain = true
+                        }
+                    }
+
+                    override val testCaseOfCurrentFile = object : CurrentFileHandler.TestCaseHandler {
+                        override val patchedPackagesMapping get() = this@ExtTestDataFileStructure.patchedPackagesMapping
                     }
                 }
 
@@ -396,7 +450,7 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
     fun generateTextExcludingSupportModule(freeCompilerArgs: Collection<String>): String {
         checkModulesConsistency()
 
-        val isStandaloneTest = files.any { it.packageName?.isKotlinPackageName() == true }
+        val isStandaloneTest = files.any { it.originalPackageName?.isKotlinPackageName() == true }
 
         return buildString {
             appendAutogeneratedSourceCodeWarning()
@@ -475,13 +529,24 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
 
     interface CurrentFileHandler {
         interface PackageNameHandler {
-            var packageName: PackageName
+            val originalPackageName: PackageName
+            val patchedPackageName: PackageName
             val isSet: Boolean
+            fun set(originalPackageName: PackageName, patchedPackageName: PackageName = originalPackageName)
         }
 
-        val packageNameOfCurrentFile: PackageNameHandler
+        interface ModuleHandler {
+            fun markAsMain()
+        }
+
+        interface TestCaseHandler {
+            val patchedPackagesMapping: Map</* package name parts */ List<String>, PackageName>
+        }
+
         var textOfCurrentFile: String
-        fun markCurrentModuleAsMain()
+        val packageNameOfCurrentFile: PackageNameHandler
+        val moduleOfCurrentFile: ModuleHandler
+        val testCaseOfCurrentFile: TestCaseHandler
     }
 
     private class TestModule(
@@ -503,7 +568,8 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
         val module: TestModule,
         var text: String
     ) {
-        var packageName: PackageName? = null
+        var originalPackageName: PackageName? = null
+        var patchedPackageName: PackageName? = null
 
         init {
             module.files += this
