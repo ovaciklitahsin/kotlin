@@ -267,8 +267,6 @@ class Fir2IrDeclarationStorage(
             parent = irParent
             if (irParent is IrExternalPackageFragment) {
                 irParent.declarations += this
-            } else if (irParent is IrClass) {
-                // TODO: irParent.declarations += this (probably needed for external stuff)
             }
         }
     }
@@ -594,7 +592,7 @@ class Fir2IrDeclarationStorage(
         else
             symbolTable.declareSimpleFunction(signature, { Fir2IrSimpleFunctionSymbol(signature, containerSource) }, factory)
 
-    internal fun createIrPropertyAccessor(
+    private fun createIrPropertyAccessor(
         propertyAccessor: FirPropertyAccessor?,
         property: FirProperty,
         correspondingProperty: IrDeclarationWithName,
@@ -1084,7 +1082,10 @@ class Fir2IrDeclarationStorage(
         ) as IrConstructorSymbol
     }
 
-    fun getIrFunctionSymbol(firFunctionSymbol: FirFunctionSymbol<*>): IrFunctionSymbol {
+    fun getIrFunctionSymbol(
+        firFunctionSymbol: FirFunctionSymbol<*>,
+        dispatchReceiverLookupTag: ConeClassLikeLookupTag? = null
+    ): IrFunctionSymbol {
         return when (val fir = firFunctionSymbol.fir) {
             is FirAnonymousFunction -> {
                 getCachedIrFunction(fir)?.let { return it.symbol }
@@ -1094,7 +1095,7 @@ class Fir2IrDeclarationStorage(
                 createIrFunction(fir, irParent, predefinedOrigin = declarationOrigin).symbol
             }
             is FirSimpleFunction -> {
-                return getIrCallableSymbol(
+                val originalSymbol = getIrCallableSymbol(
                     firFunctionSymbol,
                     getCachedIrDeclaration = ::getCachedIrFunction,
                     createIrDeclaration = { parent, origin -> createIrFunction(fir, parent, predefinedOrigin = origin) },
@@ -1120,6 +1121,17 @@ class Fir2IrDeclarationStorage(
                         irFunction
                     }
                 ) as IrFunctionSymbol
+                if (dispatchReceiverLookupTag != null && dispatchReceiverLookupTag != firFunctionSymbol.containingClass()) {
+                    val dispatchReceiverIrClass =
+                        classifierStorage.getIrClassSymbol(dispatchReceiverLookupTag.toSymbol(session) as FirClassSymbol).owner
+                    dispatchReceiverIrClass.declarations.find {
+                        it is IrSimpleFunction && it.isFakeOverride && it.name == fir.name &&
+                                it.overrides(originalSymbol.owner as IrSimpleFunction)
+                    }?.symbol as? IrFunctionSymbol
+                        ?: originalSymbol // Fallback (normally we should not be here, but f/o are bound too late)
+                } else {
+                    originalSymbol
+                }
             }
             is FirConstructor -> {
                 getIrConstructorSymbol(fir.symbol)
@@ -1128,12 +1140,15 @@ class Fir2IrDeclarationStorage(
         }
     }
 
-    fun getIrPropertySymbol(firPropertySymbol: FirPropertySymbol): IrSymbol {
+    fun getIrPropertySymbol(
+        firPropertySymbol: FirPropertySymbol,
+        dispatchReceiverLookupTag: ConeClassLikeLookupTag? = null
+    ): IrSymbol {
         val fir = firPropertySymbol.fir
         if (fir.isLocal) {
             return localStorage.getDelegatedProperty(fir)?.symbol ?: getIrVariableSymbol(fir)
         }
-        return getIrCallableSymbol(
+        val originalSymbol = getIrCallableSymbol(
             firPropertySymbol,
             getCachedIrDeclaration = ::getCachedIrProperty,
             createIrDeclaration = { parent, origin -> createIrProperty(fir, parent, predefinedOrigin = origin) },
@@ -1156,6 +1171,16 @@ class Fir2IrDeclarationStorage(
                 return symbol
             }
         )
+        return if (dispatchReceiverLookupTag != null && dispatchReceiverLookupTag != firPropertySymbol.containingClass()) {
+            val dispatchReceiverIrClass =
+                classifierStorage.getIrClassSymbol(dispatchReceiverLookupTag.toSymbol(session) as FirClassSymbol).owner
+            dispatchReceiverIrClass.declarations.find {
+                it is IrProperty && it.isFakeOverride && it.name == fir.name && it.overrides(originalSymbol.owner as IrProperty)
+            }?.symbol as? IrPropertySymbol
+                ?: originalSymbol // Fallback (normally we should not be here, but f/o are bound too late)
+        } else {
+            originalSymbol
+        }
     }
 
     private inline fun <
@@ -1242,7 +1267,7 @@ class Fir2IrDeclarationStorage(
         return getIrPropertyForwardedSymbol(firVariableSymbol.fir)
     }
 
-    fun getIrPropertyForwardedSymbol(fir: FirVariable): IrSymbol {
+    private fun getIrPropertyForwardedSymbol(fir: FirVariable): IrSymbol {
         return when (fir) {
             is FirProperty -> {
                 if (fir.isLocal) {
