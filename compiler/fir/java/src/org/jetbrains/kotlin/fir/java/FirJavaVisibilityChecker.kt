@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.java
 
+import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.descriptors.java.JavaVisibilities
@@ -16,9 +17,11 @@ import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticPropertySymbol
 import org.jetbrains.kotlin.fir.resolve.calls.ReceiverValue
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
+import org.jetbrains.kotlin.name.Name
 
 @NoMutableState
 object FirJavaVisibilityChecker : FirVisibilityChecker() {
@@ -31,18 +34,29 @@ object FirJavaVisibilityChecker : FirVisibilityChecker() {
         session: FirSession,
         isCallToPropertySetter: Boolean,
     ): Boolean {
+        val isSyntheticProperty = symbol.fir is FirSyntheticPropertyAccessor
         return when (declarationVisibility) {
             JavaVisibilities.ProtectedAndPackage, JavaVisibilities.ProtectedStaticVisibility -> {
                 if (symbol.packageFqName() == useSiteFile.packageFqName) {
                     true
                 } else {
                     val ownerLookupTag = symbol.getOwnerLookupTag() ?: return false
+                    val isVariableOrNamedFunction =
+                        symbol is FirVariableSymbol || symbol is FirNamedFunctionSymbol || symbol is FirPropertyAccessorSymbol
                     if (canSeeProtectedMemberOf(
                             containingDeclarations, dispatchReceiver, ownerLookupTag, session,
-                            isVariableOrNamedFunction = symbol is FirVariableSymbol || symbol is FirNamedFunctionSymbol || symbol is FirPropertyAccessorSymbol,
-                            isSyntheticProperty = symbol.fir is FirSyntheticPropertyAccessor
+                            isVariableOrNamedFunction, isSyntheticProperty
                         )
                     ) return true
+                    val classId = ownerLookupTag.classId
+                    if (classId.packageFqName.startsWith(JAVA_NAME)) {
+                        val kotlinClassId = JavaToKotlinClassMap.mapJavaToKotlin(classId.asSingleFqName())
+                        if (kotlinClassId != null && canSeeProtectedMemberOf(
+                                containingDeclarations, dispatchReceiver, ConeClassLikeLookupTagImpl(kotlinClassId), session,
+                                isVariableOrNamedFunction, isSyntheticProperty
+                            )
+                        ) return true
+                    }
 
                     // FE1.0 allows calling public setters with property assignment syntax if the getter is protected.
                     if (!isCallToPropertySetter || symbol !is FirSyntheticPropertySymbol) return false
@@ -53,7 +67,7 @@ object FirJavaVisibilityChecker : FirVisibilityChecker() {
             JavaVisibilities.PackageVisibility -> {
                 if (symbol.packageFqName() == useSiteFile.packageFqName) {
                     true
-                } else if (symbol.fir is FirSyntheticPropertyAccessor) {
+                } else if (isSyntheticProperty) {
                     symbol.getOwnerLookupTag()?.classId?.packageFqName == useSiteFile.packageFqName
                 } else {
                     false
@@ -63,4 +77,6 @@ object FirJavaVisibilityChecker : FirVisibilityChecker() {
             else -> true
         }
     }
+
+    private val JAVA_NAME = Name.identifier("java")
 }
