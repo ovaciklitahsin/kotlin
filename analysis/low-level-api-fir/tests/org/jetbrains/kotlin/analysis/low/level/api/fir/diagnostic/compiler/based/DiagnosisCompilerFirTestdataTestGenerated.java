@@ -5100,6 +5100,12 @@ public class DiagnosisCompilerFirTestdataTestGenerated extends AbstractDiagnosis
             }
 
             @Test
+            @TestMetadata("kfunctionToGenericFunction.kt")
+            public void testKfunctionToGenericFunction() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/kfunctionToGenericFunction.kt");
+            }
+
+            @Test
             @TestMetadata("nonSuspendToSuspend.kt")
             public void testNonSuspendToSuspend() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/nonSuspendToSuspend.kt");

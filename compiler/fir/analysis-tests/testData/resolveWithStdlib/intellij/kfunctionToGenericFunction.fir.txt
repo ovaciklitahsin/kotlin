@@ -1,0 +1,61 @@
+FILE: kfunctionToGenericFunction.kt
+    public final class LineChart<X : R|kotlin/Number|, Y : R|kotlin/Number|> : R|kotlin/Any| {
+        public constructor<X : R|kotlin/Number|, Y : R|kotlin/Number|>(): R|LineChart<X, Y>| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun <X : R|kotlin/Number|, Y : R|kotlin/Number|> lineChart(ink: R|LineChart<X, Y>.() -> kotlin/Unit|): R|LineChart<X, Y>| {
+        ^lineChart R|/LineChart.LineChart|<R|X|, R|Y|>().R|kotlin/apply|<R|LineChart<X, Y>|>(R|<local>/ink|)
+    }
+    public final fun <X : R|kotlin/Number|, Y : R|kotlin/Number|> R|LineChart<X, Y>|.datasets(body: R|DataHolder<X, Y>.() -> kotlin/Unit|): R|kotlin/Unit| {
+    }
+    public final fun <X : R|kotlin/Number|, Y : R|kotlin/Number|> R|DataHolder<X, Y>|.dataset(body: R|LineDataset<X, Y>.() -> kotlin/Unit|): R|kotlin/Unit| {
+    }
+    public final class DataHolder<X : R|kotlin/Number|, Y : R|kotlin/Number|> : R|kotlin/Any| {
+        public constructor<X : R|kotlin/Number|, Y : R|kotlin/Number|>(data: R|kotlin/collections/MutableList<LineDataset<X, Y>>|): R|DataHolder<X, Y>| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val data: R|kotlin/collections/MutableList<LineDataset<X, Y>>| = R|<local>/data|
+            public get(): R|kotlin/collections/MutableList<LineDataset<X, Y>>|
+
+    }
+    public final class LineDataset<X : R|kotlin/Number|, Y : R|kotlin/Number|> : R|kotlin/Any| {
+        public constructor<X : R|kotlin/Number|, Y : R|kotlin/Number|>(): R|LineDataset<X, Y>| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Generator<X : R|kotlin/Number|, Y : R|kotlin/Number|> : R|kotlin/Any| {
+        public constructor<X : R|kotlin/Number|, Y : R|kotlin/Number|>(): R|Generator<X, Y>| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final lateinit var i: R|kotlin/collections/Iterable<X>|
+            public get(): R|kotlin/collections/Iterable<X>|
+            public set(value: R|kotlin/collections/Iterable<X>|): R|kotlin/Unit|
+
+        public final lateinit var z: R|(@R|kotlin/ParameterName|(name = String(x))  X) -> Y|
+            public get(): R|(@R|kotlin/ParameterName|(name = String(x))  X) -> Y|
+            public set(value: R|(@R|kotlin/ParameterName|(name = String(x))  X) -> Y|): R|kotlin/Unit|
+
+    }
+    public final fun <X : R|kotlin/Number|, Y : R|kotlin/Number|> R|LineDataset<X, Y>|.generate(generator: R|Generator<X, Y>.() -> kotlin/Unit|): R|kotlin/Unit| {
+    }
+    private final fun funcXYLineChart(): R|LineChart<kotlin/Double, kotlin/Double>| {
+        ^funcXYLineChart R|/lineChart|<R|kotlin/Double|, R|kotlin/Double|>(<L> = lineChart@fun R|LineChart<kotlin/Double, kotlin/Double>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|/datasets|<R|kotlin/Double|, R|kotlin/Double|>(<L> = datasets@fun R|DataHolder<kotlin/Double, kotlin/Double>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|/dataset|<R|kotlin/Double|, R|kotlin/Double|>(<L> = dataset@fun R|LineDataset<kotlin/Double, kotlin/Double>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                    this@R|special/anonymous|.R|/generate|<R|kotlin/Double|, R|kotlin/Double|>(<L> = generate@fun R|Generator<kotlin/Double, kotlin/Double>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                        this@R|special/anonymous|.R|SubstitutionOverride</Generator.i: R|kotlin/collections/Iterable<kotlin/Double>|>| = R|kotlin/collections/listOf|<R|kotlin/Double|>(vararg(Double(0.0), Double(1.0), Double(2.0)))
+                        this@R|special/anonymous|.R|SubstitutionOverride</Generator.z: R|(@R|kotlin/ParameterName|(name = String(x))  kotlin/Double) -> kotlin/Double|>| = ::R|kotlin/math/sin|
+                    }
+                    )
+                }
+                )
+            }
+            )
+        }
+        )
+    }
