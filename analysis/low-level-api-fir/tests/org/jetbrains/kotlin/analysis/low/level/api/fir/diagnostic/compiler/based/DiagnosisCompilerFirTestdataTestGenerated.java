@@ -5124,6 +5124,12 @@ public class DiagnosisCompilerFirTestdataTestGenerated extends AbstractDiagnosis
             }
 
             @Test
+            @TestMetadata("returnFromMyRun.kt")
+            public void testReturnFromMyRun() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/returnFromMyRun.kt");
+            }
+
+            @Test
             @TestMetadata("typeAliasAmbiguity.kt")
             public void testTypeAliasAmbiguity() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/typeAliasAmbiguity.kt");

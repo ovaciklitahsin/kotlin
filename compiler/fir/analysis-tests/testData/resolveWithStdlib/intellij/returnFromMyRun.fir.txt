@@ -1,0 +1,24 @@
+FILE: returnFromMyRun.kt
+    public final inline fun <T> myRun(f: R|() -> T|): R|T| {
+        ^myRun R|<local>/f|.R|SubstitutionOverride<kotlin/Function0.invoke: R|T|>|()
+    }
+    public final fun foo(): R|kotlin/Int| {
+        R|/myRun|<R|kotlin/Nothing|>(<L> = myRun@fun <anonymous>(): R|kotlin/Nothing| <inline=Inline, kind=UNKNOWN>  {
+            ^foo Int(24)
+        }
+        )
+    }
+    public final fun bar(arg: R|kotlin/Boolean|): R|kotlin/Int| {
+        when () {
+            R|<local>/arg| ->  {
+                ^bar Int(42)
+            }
+            else ->  {
+                R|/myRun|<R|kotlin/Nothing|>(<L> = myRun@fun <anonymous>(): R|kotlin/Nothing| <inline=Inline, kind=UNKNOWN>  {
+                    ^bar Int(24)
+                }
+                )
+            }
+        }
+
+    }
