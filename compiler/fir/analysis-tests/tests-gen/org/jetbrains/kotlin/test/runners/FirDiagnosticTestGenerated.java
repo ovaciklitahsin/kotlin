@@ -5100,6 +5100,12 @@ public class FirDiagnosticTestGenerated extends AbstractFirDiagnosticTest {
             }
 
             @Test
+            @TestMetadata("nonSuspendToSuspend.kt")
+            public void testNonSuspendToSuspend() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/nonSuspendToSuspend.kt");
+            }
+
+            @Test
             @TestMetadata("ParentOfType.kt")
             public void testParentOfType() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/ParentOfType.kt");

@@ -1,0 +1,7 @@
+FILE: nonSuspendToSuspend.kt
+    public final fun foo(): R|kotlin/Unit| {
+        lval f: R|suspend (kotlin/String) -> kotlin/Int| = fun <anonymous>(it: R|kotlin/String|): R|kotlin/Int| <inline=Unknown>  {
+            ^ Int(42)
+        }
+
+    }
