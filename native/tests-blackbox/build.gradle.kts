@@ -5,11 +5,14 @@ plugins {
     id("jps-compatible")
 }
 
+project.configureJvmToolchain(JdkMajorVersion.JDK_11)
+
 val kotlinNativeCompilerClassPath: Configuration by configurations.creating
 
 dependencies {
     testImplementation(kotlinStdlib())
     testImplementation(intellijCoreDep()) { includeJars("intellij-core") }
+    testImplementation(intellijPluginDep("java"))
     testImplementation(project(":kotlin-compiler-runner"))
     testImplementation(projectTests(":compiler:tests-common"))
     testImplementation(projectTests(":compiler:tests-common-new"))
@@ -57,8 +60,15 @@ projectTest(jUnit5Enabled = true) {
     useJUnitPlatform()
 }
 
-val generateOwnTests by generator("org.jetbrains.kotlin.generators.tests.GenerateNativeBlackboxTestsKt")
-val generateExtTests by generator("org.jetbrains.kotlin.generators.tests.GenerateExtNativeBlackboxTestsKt")
+val generateOwnTests by generator("org.jetbrains.kotlin.generators.tests.GenerateNativeBlackboxTestsKt") {
+    javaLauncher.set(project.getToolchainLauncherFor(JdkMajorVersion.JDK_11))
+}
+
+val generateExtTests by generator("org.jetbrains.kotlin.generators.tests.GenerateExtNativeBlackboxTestsKt") {
+    systemProperty("idea.home.path", project.intellijRootDir().canonicalPath)
+    systemProperty("idea.ignore.disabled.plugins", "true")
+    javaLauncher.set(project.getToolchainLauncherFor(JdkMajorVersion.JDK_11))
+}
 
 val generateTests by tasks.creating<Task> {
     dependsOn(generateOwnTests, generateExtTests)

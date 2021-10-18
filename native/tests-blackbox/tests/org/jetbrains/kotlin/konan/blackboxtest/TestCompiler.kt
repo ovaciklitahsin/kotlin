@@ -265,7 +265,7 @@ private fun runCompiler(args: Array<String>, lazyKotlinNativeClassLoader: Lazy<C
 
     val compilerXmlOutput = ByteArrayOutputStream()
     val exitCode = PrintStream(compilerXmlOutput).use { printStream ->
-        val result = entryPoint.invoke(compilerClass.newInstance(), printStream, emptyServices, args)
+        val result = entryPoint.invoke(compilerClass.getDeclaredConstructor().newInstance(), printStream, emptyServices, args)
         ExitCode.valueOf(result.toString())
     }
 

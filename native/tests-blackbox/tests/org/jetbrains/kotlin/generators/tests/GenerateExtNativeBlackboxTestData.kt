@@ -5,23 +5,36 @@
 
 package org.jetbrains.kotlin.generators.tests
 
+import com.intellij.core.CoreApplicationEnvironment
+import com.intellij.mock.MockProject
+import com.intellij.openapi.Disposable
+import com.intellij.pom.PomModel
+import com.intellij.pom.core.impl.PomModelImpl
+import com.intellij.pom.tree.TreeAspect
+import com.intellij.psi.impl.source.tree.TreeCopyHandler
+import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
+import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.generators.tests.ExtTestDataFile.Companion.THREAD_LOCAL_ANNOTATION
 import org.jetbrains.kotlin.konan.blackboxtest.*
-import org.jetbrains.kotlin.konan.blackboxtest.DEFAULT_FILE_NAME
-import org.jetbrains.kotlin.konan.blackboxtest.PackageName
-import org.jetbrains.kotlin.konan.blackboxtest.computePackageName
-import org.jetbrains.kotlin.konan.blackboxtest.deleteRecursivelyWithLogging
-import org.jetbrains.kotlin.konan.blackboxtest.getAbsoluteFile
-import org.jetbrains.kotlin.konan.blackboxtest.mkdirsWithLogging
-import org.jetbrains.kotlin.test.Directives
-import org.jetbrains.kotlin.test.InTextDirectivesUtils.*
-import org.jetbrains.kotlin.test.KotlinBaseTest
-import org.jetbrains.kotlin.test.TargetBackend
-import org.jetbrains.kotlin.test.TestFiles
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.addRemoveModifier.addAnnotationEntry
+import org.jetbrains.kotlin.psi.psiUtil.getChildOfType
+import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
+import org.jetbrains.kotlin.resolve.ImportPath
+import org.jetbrains.kotlin.test.*
+import org.jetbrains.kotlin.test.InTextDirectivesUtils.isCompatibleTarget
+import org.jetbrains.kotlin.test.InTextDirectivesUtils.isIgnoredTarget
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.util.KtTestUtil
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.io.File
-import java.lang.StringBuilder
 
 internal fun generateExtNativeBlackboxTestData(
     testDataSource: String,
@@ -52,7 +65,7 @@ internal class ExtTestDataConfig(
 
     fun generateTestData() {
         val testDataSourceDir = getAbsoluteFile(testDataSource)
-        assertTrue(testDataSourceDir.isDirectory) { "The directory with the source test data doe not exist: $testDataSourceDir" }
+        assertTrue(testDataSourceDir.isDirectory) { "The directory with the source testData doe not exist: $testDataSourceDir" }
 
         val testDataDestinationDir = getAbsoluteFile(testDataDestination)
         testDataDestinationDir.deleteRecursivelyWithLogging()
@@ -93,6 +106,15 @@ private class ExtTestDataFile(
     private val testDataDestinationDir: File
 ) {
     private val structure = ExtTestDataFileStructure(testDataFile)
+    private val structure2 = ExtTestDataFileStructure2({}, testDataFile) { line ->
+        if (line.parseDirectiveName() != null) {
+            // Remove all directives from the text.
+            null
+        } else {
+            // Remove all diagnostic parameters from the text. Examples: <!NO_TAIL_CALLS_FOUND!>, <!NON_TAIL_RECURSIVE_CALL!>, <!>.
+            line.replace(DIAGNOSTIC_REGEX) { match -> match.groupValues[1] }
+        }
+    }
 
     private val settings = ExtTestDataFileSettings(
         languageSettings = structure.directives.listValues(LANGUAGE_DIRECTIVE)
@@ -120,15 +142,21 @@ private class ExtTestDataFile(
         return args
     }
 
+
     fun generateNewTestDataFileIfNecessary(sharedTestModules: SharedTestModules) {
         if (!shouldBeGenerated()) return
 
-        removeAllDirectives()
-        removeDiagnosticParameters()
-        stampPackageNames()
-        patchFullyQualifiedNamesOfDeclarations()
-        makeMutableObjects()
-        val entryPointFunctionFQN = findEntryPointFunction()
+        makeMutableObjects2()
+        patchPackageNames()
+        val (entryPointFunctionFQN2, fileLevelAnnotations) = findEntryPoint()
+        generateTestLauncher2(entryPointFunctionFQN2, fileLevelAnnotations)
+
+        removeAllDirectives() // psi: not needed
+        removeDiagnosticParameters() // psi: not needed
+        stampPackageNames() // psi: patchPackageNames
+        patchFullyQualifiedNamesOfDeclarations() // psi: patchPackageNames
+        makeMutableObjects() // psi: makeMutableObjects2
+        val entryPointFunctionFQN = findEntryPointFunction() // psi: findEntryPoint
         val optInAnnotations = findFileLevelOptInAnnotations()
         generateTestLauncher(entryPointFunctionFQN, optInAnnotations)
 
@@ -136,6 +164,7 @@ private class ExtTestDataFile(
         val destinationFile = testDataDestinationDir.resolve(relativeFile)
 
         destinationFile.writeFileWithLogging(structure.generateTextExcludingSupportModule(assembleFreeCompilerArgs()))
+        destinationFile.resolveSibling(destinationFile.name + "-v2").writeFileWithLogging(structure2.generateTextExcludingSupportModule(assembleFreeCompilerArgs()))
         structure.generateSharedSupportModule(sharedTestModules::addFile)
     }
 
@@ -227,6 +256,239 @@ private class ExtTestDataFile(
         }
     }
 
+    private fun patchPackageNames() = with(structure2) {
+        if (isStandaloneTest) return // Don't patch packages for standalone tests.
+
+        val basePackageName = FqName(settings.effectivePackageName)
+
+        val oldPackageNames: Set<FqName> = filesToTransform.mapToSet { it.packageFqName }
+        val oldToNewPackageNameMapping: Map<FqName, FqName> = oldPackageNames.associateWith { oldPackageName ->
+            basePackageName.child(oldPackageName)
+        }
+
+        filesToTransform.forEach { handler ->
+            handler.accept(object : KtVisitor<Unit, Set<Name>>() {
+                override fun visitKtElement(element: KtElement, parentAccessibleDeclarationNames: Set<Name>) {
+                    element.getChildrenOfType<KtElement>().forEach { child ->
+                        child.accept(this, parentAccessibleDeclarationNames)
+                    }
+                }
+
+                override fun visitKtFile(file: KtFile, unused: Set<Name>) {
+                    // Patch package directive.
+                    val oldPackageDirective = file.packageDirective
+                    val oldPackageName = oldPackageDirective?.fqName ?: FqName.ROOT
+
+                    val newPackageName = oldToNewPackageNameMapping.getValue(oldPackageName)
+                    val newPackageDirective = handler.psiFactory.createPackageDirective(newPackageName)
+
+                    if (oldPackageDirective != null) {
+                        // Replace old package directive by a new one.
+                        oldPackageDirective.replace(newPackageDirective).ensureSurroundedByWhiteSpace("\n\n")
+                    } else {
+                        // Insert a package directive immediately after file-level annotations.
+                        file.addAfter(newPackageDirective, file.fileAnnotationList).ensureSurroundedByWhiteSpace("\n\n")
+                    }
+
+                    visitKtElement(file, file.collectAccessibleDeclarationNames())
+                }
+
+                override fun visitPackageDirective(directive: KtPackageDirective, unused: Set<Name>) = Unit
+
+                override fun visitImportList(importList: KtImportList, unused: Set<Name>) {
+                    importList.imports.forEach { oldImportDirective ->
+                        val newImportDirective = transformImportDirective(oldImportDirective)
+                        if (newImportDirective !== oldImportDirective) oldImportDirective.replace(newImportDirective)
+                    }
+                }
+
+                private fun transformImportDirective(importDirective: KtImportDirective): KtImportDirective {
+                    // Patch import directive if necessary.
+                    val importedFqName = importDirective.importedFqName ?: return importDirective
+                    if (importedFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME) || importedFqName.startsWith(HELPERS_PACKAGE_NAME))
+                        return importDirective
+
+                    val newImportPath = ImportPath(
+                        fqName = basePackageName.child(importedFqName),
+                        isAllUnder = importDirective.isAllUnder,
+                        alias = importDirective.aliasName?.let(Name::identifier)
+                    )
+                    return handler.psiFactory.createImportDirective(newImportPath)
+
+//                    val importedFqNameSegments = importedFqName.pathSegments()
+//                    val lastConsideredFqNameSegmentIndex = importedFqNameSegments.size + (if (importDirective.isAllUnder) 1 else 0)
+//
+//                    for (index in 1 until lastConsideredFqNameSegmentIndex) {
+//                        val subPackageName = importedFqNameSegments.fqNameBeforeIndex(index)
+//                        val newPackageName = oldToNewPackageNameMapping[subPackageName]
+//                        if (newPackageName != null) {
+//                            val newImportPath = ImportPath(
+//                                fqName = newPackageName.child(importedFqNameSegments.fqNameAfterIndex(index)),
+//                                isAllUnder = importDirective.isAllUnder,
+//                                alias = importDirective.aliasName?.let(Name::identifier)
+//                            )
+//                            importDirective.replace(handler.psiFactory.createImportDirective(newImportPath))
+//                            break
+//                        }
+//                    }
+
+//                    return null
+                }
+
+                override fun visitTypeAlias(typeAlias: KtTypeAlias, parentAccessibleDeclarationNames: Set<Name>) =
+                    super.visitTypeAlias(typeAlias, parentAccessibleDeclarationNames + typeAlias.collectAccessibleDeclarationNames())
+
+                override fun visitClassOrObject(classOrObject: KtClassOrObject, parentAccessibleDeclarationNames: Set<Name>) =
+                    super.visitClassOrObject(
+                        classOrObject,
+                        parentAccessibleDeclarationNames + classOrObject.collectAccessibleDeclarationNames()
+                    )
+
+                override fun visitClassBody(classBody: KtClassBody, parentAccessibleDeclarationNames: Set<Name>) =
+                    super.visitClassBody(classBody, parentAccessibleDeclarationNames + classBody.collectAccessibleDeclarationNames())
+
+                override fun visitPropertyAccessor(accessor: KtPropertyAccessor, parentAccessibleDeclarationNames: Set<Name>) =
+                    transformDeclarationWithBody(accessor, parentAccessibleDeclarationNames)
+
+                override fun visitNamedFunction(function: KtNamedFunction, parentAccessibleDeclarationNames: Set<Name>) =
+                    transformDeclarationWithBody(function, parentAccessibleDeclarationNames)
+
+                override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor, parentAccessibleDeclarationNames: Set<Name>) =
+                    transformDeclarationWithBody(constructor, parentAccessibleDeclarationNames)
+
+                override fun visitSecondaryConstructor(constructor: KtSecondaryConstructor, parentAccessibleDeclarationNames: Set<Name>) =
+                    transformDeclarationWithBody(constructor, parentAccessibleDeclarationNames)
+
+                private fun transformDeclarationWithBody(
+                    declarationWithBody: KtDeclarationWithBody,
+                    parentAccessibleDeclarationNames: Set<Name>
+                ) {
+                    val (expressions, nonExpressions) = declarationWithBody.children.partition { it is KtExpression }
+
+                    val accessibleDeclarationNames = parentAccessibleDeclarationNames + declarationWithBody.collectAccessibleDeclarationNames()
+                    nonExpressions.forEach { it.safeAs<KtElement>()?.accept(this, accessibleDeclarationNames) }
+
+                    val bodyAccessibleDeclarationNames = accessibleDeclarationNames.toMutableSet().apply {
+                        declarationWithBody.valueParameters.mapTo(this) { it.nameAsSafeName }
+                        if (declarationWithBody.safeAs<KtFunctionLiteral>()?.hasParameterSpecification() == false)
+                            this += IT_VALUE_PARAMETER_NAME
+                    }
+                    expressions.forEach { it.safeAs<KtElement>()?.accept(this, bodyAccessibleDeclarationNames) }
+                }
+
+                override fun visitExpression(expression: KtExpression, parentAccessibleDeclarationNames: Set<Name>) =
+                    if (expression is KtFunctionLiteral)
+                        transformDeclarationWithBody(expression, parentAccessibleDeclarationNames)
+                    else
+                        super.visitExpression(expression, parentAccessibleDeclarationNames)
+
+                override fun visitDotQualifiedExpression(
+                    dotQualifiedExpression: KtDotQualifiedExpression,
+                    accessibleDeclarationNames: Set<Name>
+                ) {
+                    val names = dotQualifiedExpression.collectNames()
+
+                    val newDotQualifiedExpression = visitPossiblyTypeReference(names, accessibleDeclarationNames) { newPackageName ->
+                        val newDotQualifiedExpression = handler.psiFactory
+                            .createFile("val x = ${newPackageName.asString()}.${dotQualifiedExpression.text}")
+                            .getChildOfType<KtProperty>()!!
+                            .getChildOfType<KtDotQualifiedExpression>()!!
+
+                        dotQualifiedExpression.replace(newDotQualifiedExpression) as KtDotQualifiedExpression
+                    } ?: dotQualifiedExpression
+
+                    super.visitDotQualifiedExpression(newDotQualifiedExpression, accessibleDeclarationNames)
+                }
+
+                override fun visitUserType(userType: KtUserType, accessibleDeclarationNames: Set<Name>) {
+                    val names = userType.collectNames()
+
+                    val newUserType = visitPossiblyTypeReference(names, accessibleDeclarationNames) { newPackageName ->
+                        val newUserType = handler.psiFactory
+                            .createFile("val x: ${newPackageName.asString()}.${userType.text}")
+                            .getChildOfType<KtProperty>()!!
+                            .getChildOfType<KtTypeReference>()!!
+                            .typeElement as KtUserType
+
+                        userType.replace(newUserType) as KtUserType
+                    } ?: userType
+
+                    newUserType.typeArgumentList?.let { visitKtElement(it, accessibleDeclarationNames) }
+                }
+
+                private fun <T : KtElement> visitPossiblyTypeReference(
+                    names: List<Name>,
+                    accessibleDeclarationNames: Set<Name>,
+                    action: (newSubPackageName: FqName) -> T
+                ): T? {
+                    if (names.size < 2) return null
+
+                    if (names.first() in accessibleDeclarationNames) return null
+
+                    for (index in 1 until names.size) {
+                        val subPackageName = names.fqNameBeforeIndex(index)
+                        val newPackageName = oldToNewPackageNameMapping[subPackageName]
+                        if (newPackageName != null)
+                            return action(newPackageName.removeSuffix(subPackageName))
+                    }
+
+                    return null
+                }
+            }, emptySet())
+        }
+    }
+
+    /** Finds the fully-qualified name of the entry point function (aka `fun box(): String`). */
+    private fun findEntryPoint(): Pair<String, Set<String>> = with(structure2) {
+        val result = mutableListOf<Pair<String, Set<String>>>()
+
+        filesToTransform.forEach { handler ->
+            handler.accept(object : KtTreeVisitorVoid() {
+                override fun visitKtFile(file: KtFile) {
+                    val hasBoxFunction = file.children.any { child ->
+                        child is KtNamedFunction && child.name == BOX_FUNCTION_NAME.asString() && child.valueParameters.isEmpty()
+                    }
+                    if (!hasBoxFunction) return
+
+                    val boxFunctionFqName = file.packageFqName.child(BOX_FUNCTION_NAME).asString()
+                    handler.module.markAsMain()
+
+                    val importDirectives: Map<String, String> by lazy {
+                        file.importDirectives
+                            .mapNotNull { importDirective ->
+                                val importedFqName = importDirective.importedFqName ?: return@mapNotNull null
+                                val name = importDirective.alias?.name ?: importedFqName.shortName().asString()
+                                name to importedFqName.asString()
+                            }.toMap()
+                    }
+
+                    val annotations = file.annotationEntries.mapNotNullToSet { annotationEntry ->
+                        val constructorCallee = annotationEntry.getChildOfType<KtConstructorCalleeExpression>()
+                        val constructorType = constructorCallee?.typeReference?.getChildOfType<KtUserType>()
+                        val constructorTypeName = constructorType?.collectNames()?.singleOrNull()
+
+                        if (constructorTypeName != OPT_IN_ANNOTATION_NAME) return@mapNotNullToSet null
+
+                        val valueArgument = annotationEntry.valueArguments.singleOrNull()
+                        val classLiteral = valueArgument?.getArgumentExpression() as? KtClassLiteralExpression
+
+                        return@mapNotNullToSet if (classLiteral?.getChildOfType<KtDotQualifiedExpression>() != null)
+                            annotationEntry.text
+                        else
+                            classLiteral?.getChildOfType<KtNameReferenceExpression>()?.getReferencedName()
+                                ?.let(importDirectives::get)
+                                ?.let { fullyQualifiedName -> "@file:${OPT_IN_ANNOTATION_NAME.asString()}($fullyQualifiedName::class)" }
+                    }
+
+                    result += boxFunctionFqName to annotations
+                }
+            })
+        }
+
+        return result.singleOrNull()
+            ?: fail { "Exactly one entry point function is expected in $testDataFile. But ${if (result.size == 0) "none" else result.size} were found." }
+    }
+
     /** Finds the fully-qualified name of the entry point function (aka `fun box(): String`). */
     private fun findEntryPointFunction(): String {
         val entryPointFunctionFQNs = hashSetOf<String>()
@@ -297,6 +559,25 @@ private class ExtTestDataFile(
         }
     }
 
+    /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
+    private fun makeMutableObjects2() = with(structure2) {
+        // Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable.
+        filesToTransform.forEach { handler ->
+            handler.accept(object : KtTreeVisitorVoid() {
+
+
+                override fun visitObjectDeclaration(obj: KtObjectDeclaration) {
+                    // FIXME: find only those that have vars inside
+                    addAnnotationEntry(
+                        obj,
+                        handler.psiFactory.createAnnotationEntry(THREAD_LOCAL_ANNOTATION)
+                    ).ensureSurroundedByWhiteSpace(" ")
+                    super.visitObjectDeclaration(obj)
+                }
+            })
+        }
+    }
+
     /** Adds a wrapper to run it as Kotlin test. */
     private fun generateTestLauncher(entryPointFunctionFQN: String, optInAnnotations: Set<String>) {
         val fileText = buildString {
@@ -321,6 +602,32 @@ private class ExtTestDataFile(
         }
 
         structure.addFileToMainModule(fileName = "__launcher__.kt", text = fileText)
+    }
+
+    /** Adds a wrapper to run it as Kotlin test. */
+    private fun generateTestLauncher2(entryPointFunctionFQN: String, fileLevelAnnotations: Set<String>) {
+        val fileText = buildString {
+            if (fileLevelAnnotations.isNotEmpty()) {
+                fileLevelAnnotations.forEach(this::appendLine)
+                appendLine()
+            }
+
+            append("package ").appendLine(settings.effectivePackageName)
+            appendLine()
+
+            append(
+                """
+                    @kotlin.test.Test
+                    fun runTest() {
+                        val result = $entryPointFunctionFQN()
+                        kotlin.test.assertEquals("OK", result, "Test failed with: ${'$'}result")
+                    }
+             
+                """.trimIndent()
+            )
+        }
+
+        structure2.addFileToMainModule(fileName = "__launcher__.kt", text = fileText)
     }
 
     companion object {
@@ -361,6 +668,56 @@ private class ExtTestDataFile(
             Regex("(?m)([^a-zA-Z0-9_\\.])([a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)+)")
 
         private const val THREAD_LOCAL_ANNOTATION = "@kotlin.native.ThreadLocal"
+
+        private fun FqName.child(child: FqName): FqName =
+            child.pathSegments().fold(this) { accumulator, segment -> accumulator.child(segment) }
+
+        private fun List<Name>.fqNameBeforeIndex(toIndexExclusive: Int): FqName =
+            if (toIndexExclusive == 0) FqName.ROOT else FqName(subList(0, toIndexExclusive).joinToString("."))
+
+//        private fun List<Name>.fqNameAfterIndex(fromIndexInclusive: Int): FqName =
+//            if (fromIndexInclusive == size) FqName.ROOT else FqName(subList(fromIndexInclusive, size).joinToString("."))
+
+        private fun FqName.removeSuffix(suffix: FqName): FqName {
+            val pathSegments = pathSegments()
+            val suffixPathSegments = suffix.pathSegments()
+
+            val suffixStart = pathSegments.size - suffixPathSegments.size
+            assertEquals(suffixPathSegments, pathSegments.subList(suffixStart, pathSegments.size))
+
+            return FqName(pathSegments.take(suffixStart).joinToString("."))
+        }
+
+        private fun KtElement.collectAccessibleDeclarationNames(): Set<Name> {
+            val names = mutableSetOf<Name>()
+
+            if (this is KtTypeParameterListOwner) {
+                typeParameters.mapTo(names) { it.nameAsSafeName }
+            }
+
+            children.forEach { child ->
+                if (child is KtNamedDeclaration) {
+                    when (child) {
+                        is KtClassLikeDeclaration,
+                        is KtVariableDeclaration,
+                        is KtParameter,
+                        is KtTypeParameter -> names += child.nameAsSafeName
+                    }
+                }
+
+                if (child is KtDestructuringDeclaration) {
+                    child.entries.mapTo(names) { it.nameAsSafeName }
+                }
+
+            }
+
+            return names
+        }
+
+        private val IT_VALUE_PARAMETER_NAME = Name.identifier("it")
+        private val BOX_FUNCTION_NAME = Name.identifier("box")
+        private val OPT_IN_ANNOTATION_NAME = Name.identifier("OptIn")
+        private val HELPERS_PACKAGE_NAME = Name.identifier("helpers")
     }
 }
 
@@ -383,6 +740,8 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
     private val factory = TestFileFactory()
     private val modules = mutableMapOf<String, TestModule>()
     private val files = mutableListOf<TestFile>()
+
+    private val psiFiles: Map<TestFile, KtFile>
 
     private val patchedPackagesMapping: Map</* package name parts */ List<String>, PackageName> by lazy {
         files.associate { file ->
@@ -412,6 +771,8 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
                 }
             }
         }
+
+        psiFiles = buildPsi(generatedFiles) {}
     }
 
     val directives: Directives get() = factory.directives
@@ -623,6 +984,270 @@ private class ExtTestDataFileStructure(originalTestDataFile: File) {
     companion object {
         private val GENERATOR_TOOL_NAME =
             "${::generateExtNativeBlackboxTestData.javaClass.`package`.name}.${::generateExtNativeBlackboxTestData.name}()"
+
+        private fun buildPsi(testFiles: Collection<TestFile>, parentDisposable: Disposable): Map<TestFile, KtFile> {
+            val configuration: CompilerConfiguration = KotlinTestUtils.newConfiguration()
+            configuration.put(CommonConfigurationKeys.MODULE_NAME, "native-blackbox-test-patching-module")
+
+            val environment: KotlinCoreEnvironment = KotlinCoreEnvironment.createForTests(
+                parentDisposable = parentDisposable,
+                initialConfiguration = configuration,
+                extensionConfigs = EnvironmentConfigFiles.METADATA_CONFIG_FILES
+            )
+
+            val psiFactory = KtPsiFactory(environment.project)
+
+            return testFiles.associateWith { testFile ->
+                psiFactory.createFile(testFile.name, testFile.text)
+            }
+        }
+    }
+}
+
+private class ExtTestDataFileStructure2(
+    parentDisposable: Disposable,
+    originalTestDataFile: File,
+    cleanUpTransformation: (String) -> String? // Line -> transformed line (or null if line should be skipped).
+) {
+    private val originalTestDataFileRelativePath = originalTestDataFile.relativeTo(File(KtTestUtil.getHomeDirectory()))
+
+    private val testFileFactory = TestFileFactory()
+    private val modules: Map<String, TestModule>
+    private val parsedFiles: Map<TestFile, Lazy<KtFile>>
+    private val nonParsedFiles = mutableListOf<TestFile>()
+
+    private val psiFactory: KtPsiFactory by lazy { createPsiFactory(parentDisposable) }
+
+    init {
+        val generatedFiles = TestFiles.createTestFiles(DEFAULT_FILE_NAME, originalTestDataFile.readText(), testFileFactory)
+
+        // Clean up contents of every individual test file. Important: This should be done only after parsing testData file,
+        // because parsing of testData file relies on certain directives which could be removed by the transformation.
+        generatedFiles.forEach { file -> file.text = file.text.transformByLines(cleanUpTransformation) }
+
+        modules = generatedFiles.map { it.module }.associateBy { it.name }
+
+        val (supportModuleFiles, nonSupportModuleFiles) = generatedFiles.partition { it.module.isSupport }
+        parsedFiles = nonSupportModuleFiles.associateWith { lazy { psiFactory.createFile(it.name, it.text) } }
+        nonParsedFiles += supportModuleFiles
+
+        // Explicitly add support module to other modules' dependencies (as it is not listed there by default).
+        val supportModule = modules[SUPPORT_MODULE_NAME]
+        if (supportModule != null) {
+            modules.forEach { (moduleName, module) ->
+                if (moduleName != SUPPORT_MODULE_NAME && supportModule !in module.dependencies) {
+                    module.dependencies += supportModule
+                }
+            }
+        }
+    }
+
+    val directives: Directives get() = testFileFactory.directives
+
+    // We can't fully patch packages for tests containing source code in any of kotlin.* packages.
+    // So, such tests should be run in standalone mode to avoid possible signature clashes with other tests.
+    val isStandaloneTest: Boolean get() = parsedFiles.values.any { it.value.packageFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME) }
+
+    val filesToTransform: Iterable<CurrentFileHandler>
+        get() = parsedFiles.map { (file, lazyPsiFile) ->
+            object : CurrentFileHandler {
+                override val packageFqName get() = lazyPsiFile.value.packageFqName
+                override val module = object : CurrentFileHandler.ModuleHandler {
+                    override fun markAsMain() {
+                        file.module.isMain = true
+                    }
+                }
+                override val psiFactory get() = this@ExtTestDataFileStructure2.psiFactory
+
+                override fun accept(visitor: KtVisitor<*, *>): Unit = lazyPsiFile.value.accept(visitor)
+                override fun <D> accept(visitor: KtVisitor<*, D>, data: D) {
+                    lazyPsiFile.value.accept(visitor, data)
+                }
+            }
+        }
+
+    fun addFileToMainModule(fileName: String, text: String) {
+        val foundModules = modules.values.filter { it.isMain }
+        val mainModule = when (val size = foundModules.size) {
+            1 -> foundModules.first()
+            else -> fail { "Exactly one main module is expected. But ${if (size == 0) "none" else size} were found." }
+        }
+
+        nonParsedFiles += testFileFactory.createFile(mainModule, fileName, text)
+    }
+
+    fun generateTextExcludingSupportModule(freeCompilerArgs: Collection<String>): String {
+        checkModulesConsistency()
+
+        // Update texts of parsed test files.
+        parsedFiles.forEach { (file, lazyPsiFile) ->
+            if (lazyPsiFile.isInitialized()) {
+                file.text = lazyPsiFile.value.text
+            }
+        }
+
+        return buildString {
+            appendAutogeneratedSourceCodeWarning()
+
+            if (isStandaloneTest) appendLine("// KIND: STANDALONE")
+
+            if (freeCompilerArgs.isNotEmpty()) {
+                append("// FREE_COMPILER_ARGS: ")
+                freeCompilerArgs.joinTo(this, separator = " ")
+                appendLine()
+            }
+
+            modules.entries.sortedBy { it.key }.forEach { (_, module) ->
+                if (module.isSupport) return@forEach // Skip support module.
+
+                // MODULE line:
+                append("// MODULE: ${module.name}")
+                if (module.dependencies.isNotEmpty() || module.friends.isNotEmpty()) {
+                    append('(')
+                    module.dependencies.joinTo(this, separator = ",")
+                    append(')')
+                    if (module.friends.isNotEmpty()) {
+                        append('(')
+                        module.friends.joinTo(this, separator = ",")
+                        append(')')
+                    }
+                }
+                appendLine()
+
+                module.files.forEach { file ->
+                    // FILE line:
+                    appendLine("// FILE: ${file.name}")
+
+                    // FILE contents:
+                    appendLine(file.text)
+                }
+            }
+        }
+    }
+
+    fun generateSharedSupportModule(action: (moduleName: String, fileName: String, fileText: String) -> Unit) {
+        modules[SUPPORT_MODULE_NAME]?.let { supportModule ->
+            supportModule.files.forEach { file ->
+                action(supportModule.name, file.name, file.text)
+            }
+        }
+    }
+
+    @Suppress("UNNECESSARY_SAFE_CALL", "UselessCallOnCollection")
+    private fun checkModulesConsistency() {
+        modules.values.forEach { module ->
+            val unknownFriends = (module.friendsSymbols + module.friends.mapNotNull { it?.name }).toSet() - modules.keys
+            assertTrue(unknownFriends.isEmpty()) { "Module $module has unknown friends: $unknownFriends" }
+
+            val unknownDependencies = (module.dependenciesSymbols + module.dependencies.mapNotNull { it?.name }).toSet() - modules.keys
+            assertTrue(unknownDependencies.isEmpty()) { "Module $module has unknown dependencies: $unknownDependencies" }
+
+            assertTrue(module.files.isNotEmpty()) { "Module $module has no files" }
+        }
+    }
+
+    private fun StringBuilder.appendAutogeneratedSourceCodeWarning() {
+        appendLine(
+            """
+                /*
+                 * This file was generated automatically.
+                 * PLEASE DO NOT MODIFY IT MANUALLY.
+                 *
+                 * Generator tool: $GENERATOR_TOOL_NAME
+                 * Original file: $originalTestDataFileRelativePath
+                 */
+                
+            """.trimIndent()
+        )
+    }
+
+    interface CurrentFileHandler {
+        interface ModuleHandler {
+            fun markAsMain()
+        }
+
+        val packageFqName: FqName
+        val module: ModuleHandler
+        val psiFactory: KtPsiFactory
+
+        fun accept(visitor: KtVisitor<*, *>)
+        fun <D> accept(visitor: KtVisitor<*, D>, data: D)
+    }
+
+    private class TestModule(
+        name: String,
+        dependencies: List<String>,
+        friends: List<String>
+    ) : KotlinBaseTest.TestModule(name, dependencies, friends) {
+        val files = mutableListOf<TestFile>()
+
+        val isSupport get() = name == SUPPORT_MODULE_NAME
+        var isMain = false
+
+        override fun equals(other: Any?) = (other as? TestModule)?.name == name
+        override fun hashCode() = name.hashCode()
+    }
+
+    private class TestFile(
+        val name: String,
+        val module: TestModule,
+        var text: String
+    ) {
+        init {
+            module.files += this
+        }
+
+        override fun equals(other: Any?) = (other as? TestFile)?.name == name
+        override fun hashCode() = name.hashCode()
+    }
+
+    private class TestFileFactory : TestFiles.TestFileFactory<TestModule, TestFile> {
+        private val defaultModule by lazy { createModule(DEFAULT_MODULE_NAME, emptyList(), emptyList(), emptyList()) }
+        private val supportModule by lazy { createModule(SUPPORT_MODULE_NAME, emptyList(), emptyList(), emptyList()) }
+
+        lateinit var directives: Directives
+
+        fun createFile(module: TestModule, fileName: String, text: String): TestFile =
+            TestFile(getSanitizedFileName(fileName), module, text)
+
+        override fun createFile(module: TestModule?, fileName: String, text: String, directives: Directives): TestFile {
+            this.directives = directives
+            return createFile(
+                module = module ?: if (fileName == "CoroutineUtil.kt") supportModule else defaultModule,
+                fileName = fileName,
+                text = text
+            )
+        }
+
+        override fun createModule(name: String, dependencies: List<String>, friends: List<String>, abiVersions: List<Int>): TestModule =
+            TestModule(name, dependencies, friends)
+    }
+
+    companion object {
+        private val GENERATOR_TOOL_NAME =
+            "${::generateExtNativeBlackboxTestData.javaClass.`package`.name}.${::generateExtNativeBlackboxTestData.name}()"
+
+        private fun createPsiFactory(parentDisposable: Disposable): KtPsiFactory {
+            val configuration: CompilerConfiguration = KotlinTestUtils.newConfiguration()
+            configuration.put(CommonConfigurationKeys.MODULE_NAME, "native-blackbox-test-patching-module")
+
+            val environment = KotlinCoreEnvironment.createForTests(
+                parentDisposable = parentDisposable,
+                initialConfiguration = configuration,
+                extensionConfigs = EnvironmentConfigFiles.METADATA_CONFIG_FILES
+            )
+
+//            val application = environment.projectEnvironment.environment.application as MockApplication
+            val project = environment.project as MockProject
+
+            CoreApplicationEnvironment.registerApplicationDynamicExtensionPoint(TreeCopyHandler.EP_NAME.name, TreeCopyHandler::class.java)
+//            application.registerService(KotlinReferenceProvidersService::class.java, KtIdeReferenceProviderService::class.java)
+
+            project.registerService(PomModel::class.java, PomModelImpl::class.java)
+            project.registerService(TreeAspect::class.java)
+
+            return KtPsiFactory(environment.project)
+        }
     }
 }
 
