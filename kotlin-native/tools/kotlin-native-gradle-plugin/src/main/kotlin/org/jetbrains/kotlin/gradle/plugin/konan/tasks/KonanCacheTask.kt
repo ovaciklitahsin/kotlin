@@ -16,8 +16,10 @@ enum class KonanCacheKind(val outputKind: CompilerOutputKind) {
     DYNAMIC(CompilerOutputKind.DYNAMIC_CACHE)
 }
 
+@CacheableTask
 open class KonanCacheTask: DefaultTask() {
     @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     var originalKlib: File? = null
 
     @get:Input
