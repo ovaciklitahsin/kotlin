@@ -501,7 +501,7 @@ private class ExtTestDataFileSettings(
 )
 
 private class ExtTestDataFileStructureFactory : Disposable {
-    private val lazyPsiFactory: Lazy<KtPsiFactory> = lazy { createPsiFactory(this) }
+    private val psiFactory = createPsiFactory(this)
 
     override fun dispose() = Unit
 
@@ -511,78 +511,40 @@ private class ExtTestDataFileStructureFactory : Disposable {
     ) {
         private val originalTestDataFileRelativePath = originalTestDataFile.relativeTo(File(KtTestUtil.getHomeDirectory()))
 
-        private val testFileFactory = TestFileFactory()
-        private val modules: Map<String, TestModule>
-        private val parsedFiles: Map<TestFile, Lazy<KtFile>>
-        private val nonParsedFiles: MutableList<TestFile> = mutableListOf()
+        private val filesAndModules = FilesAndModules(originalTestDataFile, initialCleanUpTransformation)
 
-        init {
-            val generatedFiles = TestFiles.createTestFiles(DEFAULT_FILE_NAME, originalTestDataFile.readText(), testFileFactory)
-
-            // Clean up contents of every individual test file. Important: This should be done only after parsing testData file,
-            // because parsing of testData file relies on certain directives which could be removed by the transformation.
-            generatedFiles.forEach { file -> file.text = file.text.transformByLines(initialCleanUpTransformation) }
-
-            modules = generatedFiles.map { it.module }.associateBy { it.name }
-
-            val (supportModuleFiles, nonSupportModuleFiles) = generatedFiles.partition { it.module.isSupport }
-            parsedFiles = nonSupportModuleFiles.associateWith { lazy { lazyPsiFactory.value.createFile(it.name, it.text) } }
-            nonParsedFiles += supportModuleFiles
-
-            // Explicitly add support module to other modules' dependencies (as it is not listed there by default).
-            val supportModule = modules[SUPPORT_MODULE_NAME]
-            if (supportModule != null) {
-                modules.forEach { (moduleName, module) ->
-                    if (moduleName != SUPPORT_MODULE_NAME && supportModule !in module.dependencies) {
-                        module.dependencies += supportModule
-                    }
-                }
-            }
-        }
-
-        val directives: Directives get() = testFileFactory.directives
+        val directives: Directives get() = filesAndModules.directives
 
         // We can't fully patch packages for tests containing source code in any of kotlin.* packages.
         // So, such tests should be run in standalone mode to avoid possible signature clashes with other tests.
-        val isStandaloneTest: Boolean get() = parsedFiles.values.any { it.value.packageFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME) }
+        val isStandaloneTest: Boolean
+            get() = filesAndModules.parsedFiles.values.any { it.packageFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME) }
 
         val filesToTransform: Iterable<CurrentFileHandler>
-            get() = parsedFiles.map { (file, lazyPsiFile) ->
+            get() = filesAndModules.parsedFiles.map { (file, psiFile) ->
                 object : CurrentFileHandler {
-                    override val packageFqName get() = lazyPsiFile.value.packageFqName
+                    override val packageFqName get() = psiFile.packageFqName
                     override val module = object : CurrentFileHandler.ModuleHandler {
                         override fun markAsMain() {
                             file.module.isMain = true
                         }
                     }
-                    override val psiFactory get() = this@ExtTestDataFileStructureFactory.lazyPsiFactory.value
+                    override val psiFactory get() = this@ExtTestDataFileStructureFactory.psiFactory
 
-                    override fun accept(visitor: KtVisitor<*, *>): Unit = lazyPsiFile.value.accept(visitor)
+                    override fun accept(visitor: KtVisitor<*, *>): Unit = psiFile.accept(visitor)
                     override fun <D> accept(visitor: KtVisitor<*, D>, data: D) {
-                        lazyPsiFile.value.accept(visitor, data)
+                        psiFile.accept(visitor, data)
                     }
                 }
             }
 
-        fun addFileToMainModule(fileName: String, text: String) {
-            val foundModules = modules.values.filter { it.isMain }
-            val mainModule = when (val size = foundModules.size) {
-                1 -> foundModules.first()
-                else -> fail { "Exactly one main module is expected. But ${if (size == 0) "none" else size} were found." }
-            }
-
-            nonParsedFiles += testFileFactory.createFile(mainModule, fileName, text)
-        }
+        fun addFileToMainModule(fileName: String, text: String): Unit = filesAndModules.addFileToMainModule(fileName, text)
 
         fun generateTextExcludingSupportModule(freeCompilerArgs: Collection<String>): String {
             checkModulesConsistency()
 
             // Update texts of parsed test files.
-            parsedFiles.forEach { (file, lazyPsiFile) ->
-                if (lazyPsiFile.isInitialized()) {
-                    file.text = lazyPsiFile.value.text
-                }
-            }
+            filesAndModules.parsedFiles.forEach { (file, psiFile) -> file.text = psiFile.text }
 
             return buildString {
                 appendAutogeneratedSourceCodeWarning()
@@ -595,7 +557,7 @@ private class ExtTestDataFileStructureFactory : Disposable {
                     appendLine()
                 }
 
-                modules.entries.sortedBy { it.key }.forEach { (_, module) ->
+                filesAndModules.modules.entries.sortedBy { it.key }.forEach { (_, module) ->
                     if (module.isSupport) return@forEach // Skip support module.
 
                     // MODULE line:
@@ -624,7 +586,7 @@ private class ExtTestDataFileStructureFactory : Disposable {
         }
 
         fun generateSharedSupportModule(action: (moduleName: String, fileName: String, fileText: String) -> Unit) {
-            modules[SUPPORT_MODULE_NAME]?.let { supportModule ->
+            filesAndModules.modules[SUPPORT_MODULE_NAME]?.let { supportModule ->
                 supportModule.files.forEach { file ->
                     action(supportModule.name, file.name, file.text)
                 }
@@ -633,11 +595,12 @@ private class ExtTestDataFileStructureFactory : Disposable {
 
         @Suppress("UNNECESSARY_SAFE_CALL", "UselessCallOnCollection")
         private fun checkModulesConsistency() {
-            modules.values.forEach { module ->
-                val unknownFriends = (module.friendsSymbols + module.friends.mapNotNull { it?.name }).toSet() - modules.keys
+            filesAndModules.modules.values.forEach { module ->
+                val unknownFriends = (module.friendsSymbols + module.friends.mapNotNull { it?.name }).toSet() - filesAndModules.modules.keys
                 assertTrue(unknownFriends.isEmpty()) { "Module $module has unknown friends: $unknownFriends" }
 
-                val unknownDependencies = (module.dependenciesSymbols + module.dependencies.mapNotNull { it?.name }).toSet() - modules.keys
+                val unknownDependencies =
+                    (module.dependenciesSymbols + module.dependencies.mapNotNull { it?.name }).toSet() - filesAndModules.modules.keys
                 assertTrue(unknownDependencies.isEmpty()) { "Module $module has unknown dependencies: $unknownDependencies" }
 
                 assertTrue(module.files.isNotEmpty()) { "Module $module has no files" }
@@ -707,6 +670,52 @@ private class ExtTestDataFileStructureFactory : Disposable {
 
         override fun createModule(name: String, dependencies: List<String>, friends: List<String>, abiVersions: List<Int>): TestModule =
             TestModule(name, dependencies, friends)
+    }
+
+    private inner class FilesAndModules(originalTestDataFile: File, initialCleanUpTransformation: (String) -> String?) {
+        private val testFileFactory = TestFileFactory()
+        private val generatedFiles = TestFiles.createTestFiles(DEFAULT_FILE_NAME, originalTestDataFile.readText(), testFileFactory)
+
+        private val lazyData: Triple<Map<String, TestModule>, Map<TestFile, KtFile>, MutableList<TestFile>> by lazy {
+            // Clean up contents of every individual test file. Important: This should be done only after parsing testData file,
+            // because parsing of testData file relies on certain directives which could be removed by the transformation.
+            generatedFiles.forEach { file -> file.text = file.text.transformByLines(initialCleanUpTransformation) }
+
+            val modules = generatedFiles.map { it.module }.associateBy { it.name }
+
+            val (supportModuleFiles, nonSupportModuleFiles) = generatedFiles.partition { it.module.isSupport }
+            val parsedFiles = nonSupportModuleFiles.associateWith { psiFactory.createFile(it.name, it.text) }
+            val nonParsedFiles = supportModuleFiles.toMutableList()
+
+            // Explicitly add support module to other modules' dependencies (as it is not listed there by default).
+            val supportModule = modules[SUPPORT_MODULE_NAME]
+            if (supportModule != null) {
+                modules.forEach { (moduleName, module) ->
+                    if (moduleName != SUPPORT_MODULE_NAME && supportModule !in module.dependencies) {
+                        module.dependencies += supportModule
+                    }
+                }
+            }
+
+            Triple(modules, parsedFiles, nonParsedFiles)
+        }
+
+        val directives: Directives get() = testFileFactory.directives
+
+        val modules: Map<String, TestModule> get() = lazyData.first
+        val parsedFiles: Map<TestFile, KtFile> get() = lazyData.second
+        private val nonParsedFiles: MutableList<TestFile> get() = lazyData.third
+
+        fun addFileToMainModule(fileName: String, text: String) {
+            val foundModules = modules.values.filter { it.isMain }
+            val mainModule = when (val size = foundModules.size) {
+                1 -> foundModules.first()
+                else -> fail { "Exactly one main module is expected. But ${if (size == 0) "none" else size} were found." }
+            }
+
+            nonParsedFiles += testFileFactory.createFile(mainModule, fileName, text)
+        }
+
     }
 
     interface CurrentFileHandler {
