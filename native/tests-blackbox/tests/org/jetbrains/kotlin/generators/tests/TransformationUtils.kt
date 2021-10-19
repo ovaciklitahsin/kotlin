@@ -26,12 +26,6 @@ internal fun String.insert(insertionIndex: Int, insertion: String): String {
     return substring(0, insertionIndex) + insertion + substring(insertionIndex)
 }
 
-internal fun String.computeIndentation(): String = buildString {
-    for (ch in this@computeIndentation) {
-        if (ch.isWhitespace()) append(ch) else break
-    }
-}
-
 internal fun PsiElement.ensureHasWhiteSpaceBefore(whiteSpace: String): PsiElement {
     val (fileBoundaryReached, whiteSpaceBefore) = whiteSpaceBefore()
     if (!fileBoundaryReached and !whiteSpaceBefore.endsWith(whiteSpace)) {

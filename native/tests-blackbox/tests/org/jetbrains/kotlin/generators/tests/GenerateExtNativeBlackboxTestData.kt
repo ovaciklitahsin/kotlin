@@ -32,7 +32,7 @@ import org.jetbrains.kotlin.test.InTextDirectivesUtils.isIgnoredTarget
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.util.KtTestUtil
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
+import org.jetbrains.kotlin.utils.addIfNotNull
 import java.io.File
 
 internal fun generateExtNativeBlackboxTestData(
@@ -86,7 +86,6 @@ internal class ExtTestDataConfig(
             root.walkTopDown()
                 .onEnter { directory -> directory !in excludedItems }
                 .filter { file -> file.isFile && file.extension == "kt" && file !in excludedItems }
-//                .filter { it.name == "kt9064.kt" }
                 .forEach { file ->
                     ExtTestDataFile(
                         testDataFile = file,
@@ -262,17 +261,15 @@ private class ExtTestDataFile(
                     declarationWithBody: KtDeclarationWithBody,
                     parentAccessibleDeclarationNames: Set<Name>
                 ) {
-                    val (expressions, nonExpressions) = declarationWithBody.children.partition { it is KtExpression }
+                    val (expressions, nonExpressions) = declarationWithBody.getChildrenOfType<KtElement>().partition { it is KtExpression }
 
-                    val accessibleDeclarationNames = parentAccessibleDeclarationNames + declarationWithBody.collectAccessibleDeclarationNames()
-                    nonExpressions.forEach { it.safeAs<KtElement>()?.accept(this, accessibleDeclarationNames) }
+                    val accessibleDeclarationNames =
+                        parentAccessibleDeclarationNames + declarationWithBody.collectAccessibleDeclarationNames()
+                    nonExpressions.forEach { it.accept(this, accessibleDeclarationNames) }
 
-                    val bodyAccessibleDeclarationNames = accessibleDeclarationNames.toMutableSet().apply {
-                        declarationWithBody.valueParameters.mapTo(this) { it.nameAsSafeName }
-                        if (declarationWithBody.safeAs<KtFunctionLiteral>()?.hasParameterSpecification() == false)
-                            this += IT_VALUE_PARAMETER_NAME
-                    }
-                    expressions.forEach { it.safeAs<KtElement>()?.accept(this, bodyAccessibleDeclarationNames) }
+                    val bodyAccessibleDeclarationNames =
+                        accessibleDeclarationNames + declarationWithBody.valueParameters.map { it.nameAsSafeName }
+                    expressions.forEach { it.accept(this, bodyAccessibleDeclarationNames) }
                 }
 
                 override fun visitExpression(expression: KtExpression, parentAccessibleDeclarationNames: Set<Name>) =
@@ -281,20 +278,29 @@ private class ExtTestDataFile(
                     else
                         super.visitExpression(expression, parentAccessibleDeclarationNames)
 
+                override fun visitBlockExpression(expression: KtBlockExpression, parentAccessibleDeclarationNames: Set<Name>) {
+                    val accessibleDeclarationNames = parentAccessibleDeclarationNames.toMutableSet()
+                    expression.getChildrenOfType<KtElement>().forEach { child ->
+                        child.accept(this, accessibleDeclarationNames)
+                        accessibleDeclarationNames.addIfNotNull(child.name?.let(Name::identifier))
+                    }
+                }
+
                 override fun visitDotQualifiedExpression(
                     dotQualifiedExpression: KtDotQualifiedExpression,
                     accessibleDeclarationNames: Set<Name>
                 ) {
                     val names = dotQualifiedExpression.collectNames()
 
-                    val newDotQualifiedExpression = visitPossiblyTypeReference(names, accessibleDeclarationNames) { newPackageName ->
-                        val newDotQualifiedExpression = handler.psiFactory
-                            .createFile("val x = ${newPackageName.asString()}.${dotQualifiedExpression.text}")
-                            .getChildOfType<KtProperty>()!!
-                            .getChildOfType<KtDotQualifiedExpression>()!!
+                    val newDotQualifiedExpression =
+                        visitPossiblyTypeReferenceWithFullyQualifiedName(names, accessibleDeclarationNames) { newPackageName ->
+                            val newDotQualifiedExpression = handler.psiFactory
+                                .createFile("val x = ${newPackageName.asString()}.${dotQualifiedExpression.text}")
+                                .getChildOfType<KtProperty>()!!
+                                .getChildOfType<KtDotQualifiedExpression>()!!
 
-                        dotQualifiedExpression.replace(newDotQualifiedExpression) as KtDotQualifiedExpression
-                    } ?: dotQualifiedExpression
+                            dotQualifiedExpression.replace(newDotQualifiedExpression) as KtDotQualifiedExpression
+                        } ?: dotQualifiedExpression
 
                     super.visitDotQualifiedExpression(newDotQualifiedExpression, accessibleDeclarationNames)
                 }
@@ -302,20 +308,21 @@ private class ExtTestDataFile(
                 override fun visitUserType(userType: KtUserType, accessibleDeclarationNames: Set<Name>) {
                     val names = userType.collectNames()
 
-                    val newUserType = visitPossiblyTypeReference(names, accessibleDeclarationNames) { newPackageName ->
-                        val newUserType = handler.psiFactory
-                            .createFile("val x: ${newPackageName.asString()}.${userType.text}")
-                            .getChildOfType<KtProperty>()!!
-                            .getChildOfType<KtTypeReference>()!!
-                            .typeElement as KtUserType
+                    val newUserType =
+                        visitPossiblyTypeReferenceWithFullyQualifiedName(names, accessibleDeclarationNames) { newPackageName ->
+                            val newUserType = handler.psiFactory
+                                .createFile("val x: ${newPackageName.asString()}.${userType.text}")
+                                .getChildOfType<KtProperty>()!!
+                                .getChildOfType<KtTypeReference>()!!
+                                .typeElement as KtUserType
 
-                        userType.replace(newUserType) as KtUserType
-                    } ?: userType
+                            userType.replace(newUserType) as KtUserType
+                        } ?: userType
 
                     newUserType.typeArgumentList?.let { visitKtElement(it, accessibleDeclarationNames) }
                 }
 
-                private fun <T : KtElement> visitPossiblyTypeReference(
+                private fun <T : KtElement> visitPossiblyTypeReferenceWithFullyQualifiedName(
                     names: List<Name>,
                     accessibleDeclarationNames: Set<Name>,
                     action: (newSubPackageName: FqName) -> T
@@ -344,8 +351,8 @@ private class ExtTestDataFile(
         filesToTransform.forEach { handler ->
             handler.accept(object : KtTreeVisitorVoid() {
                 override fun visitKtFile(file: KtFile) {
-                    val hasBoxFunction = file.children.any { child ->
-                        child is KtNamedFunction && child.name == BOX_FUNCTION_NAME.asString() && child.valueParameters.isEmpty()
+                    val hasBoxFunction = file.getChildrenOfType<KtNamedFunction>().any { function ->
+                        function.name == BOX_FUNCTION_NAME.asString() && function.valueParameters.isEmpty()
                     }
                     if (!hasBoxFunction) return
 
@@ -353,12 +360,11 @@ private class ExtTestDataFile(
                     handler.module.markAsMain()
 
                     val importDirectives: Map<String, String> by lazy {
-                        file.importDirectives
-                            .mapNotNull { importDirective ->
-                                val importedFqName = importDirective.importedFqName ?: return@mapNotNull null
-                                val name = importDirective.alias?.name ?: importedFqName.shortName().asString()
-                                name to importedFqName.asString()
-                            }.toMap()
+                        file.importDirectives.mapNotNull { importDirective ->
+                            val importedFqName = importDirective.importedFqName ?: return@mapNotNull null
+                            val name = importDirective.alias?.name ?: importedFqName.shortName().asString()
+                            name to importedFqName.asString()
+                        }.toMap()
                     }
 
                     val annotations = file.annotationEntries.mapNotNullToSet { annotationEntry ->
@@ -384,8 +390,9 @@ private class ExtTestDataFile(
             })
         }
 
-        return result.singleOrNull()
-            ?: fail { "Exactly one entry point function is expected in $testDataFile. But ${if (result.size == 0) "none" else result.size} were found." }
+        return result.singleOrNull() ?: fail {
+            "Exactly one entry point function is expected in $testDataFile. But ${if (result.size == 0) "none" else result.size} were found."
+        }
     }
 
     /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
