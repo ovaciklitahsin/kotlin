@@ -46,7 +46,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
 }
 
 projectTest(jUnit5Enabled = true) {
-    dependsOn(":kotlin-native:dist", ":kotlin-native:distPlatformLibs")
+//    dependsOn(":kotlin-native:dist", ":kotlin-native:distPlatformLibs")
     workingDir = rootDir
     maxHeapSize = "6G"
     jvmArgs("-XX:TieredStopAtLevel=1")

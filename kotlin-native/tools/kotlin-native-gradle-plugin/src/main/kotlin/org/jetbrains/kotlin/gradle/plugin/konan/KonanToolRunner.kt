@@ -129,8 +129,16 @@ internal abstract class KonanCliRunner(
                     add(mainClass)
                     addAll(listOf(toolName) + transformArgs(args))
                 })
+
                 blacklistEnvironment.forEach { environment.remove(it) }
                 exec.environment(environment)
+
+                project.logger.warn("""
+                    ARGUMENTS: ${transformArgs(args)}
+                    JVM ARGS: ${jvmArgs}
+                    PROPERTIES: ${properties.entries.map { "-D${it.key}=${it.value}" }}
+                    ENVIRONMENT: ${environment}
+                """.trimIndent())
             }
         })
     }

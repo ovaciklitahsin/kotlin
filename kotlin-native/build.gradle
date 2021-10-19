@@ -63,7 +63,7 @@ import org.jetbrains.kotlin.konan.*
 convention.plugins.platformInfo = PlatformInfo
 
 if (isMac()) {
-    checkXcodeVersion(project)
+//    checkXcodeVersion(project)
 }
 
 ext {
