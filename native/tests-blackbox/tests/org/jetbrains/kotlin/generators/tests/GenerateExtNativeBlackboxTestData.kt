@@ -86,6 +86,7 @@ internal class ExtTestDataConfig(
             root.walkTopDown()
                 .onEnter { directory -> directory !in excludedItems }
                 .filter { file -> file.isFile && file.extension == "kt" && file !in excludedItems }
+//                .filter { it.name == "kt9064.kt" }
                 .forEach { file ->
                     ExtTestDataFile(
                         testDataFile = file,
@@ -215,25 +216,22 @@ private class ExtTestDataFile(
 
                 override fun visitPackageDirective(directive: KtPackageDirective, unused: Set<Name>) = Unit
 
-                override fun visitImportList(importList: KtImportList, unused: Set<Name>) {
-                    importList.imports.forEach { oldImportDirective ->
-                        val newImportDirective = transformImportDirective(oldImportDirective)
-                        if (newImportDirective !== oldImportDirective) oldImportDirective.replace(newImportDirective)
-                    }
-                }
-
-                private fun transformImportDirective(importDirective: KtImportDirective): KtImportDirective {
+                override fun visitImportDirective(importDirective: KtImportDirective, unused: Set<Name>) {
                     // Patch import directive if necessary.
-                    val importedFqName = importDirective.importedFqName ?: return importDirective
-                    if (importedFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME) || importedFqName.startsWith(HELPERS_PACKAGE_NAME))
-                        return importDirective
+                    val importedFqName = importDirective.importedFqName
+                    if (importedFqName == null
+                        || importedFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME)
+                        || importedFqName.startsWith(HELPERS_PACKAGE_NAME)
+                    ) {
+                        return
+                    }
 
                     val newImportPath = ImportPath(
                         fqName = basePackageName.child(importedFqName),
                         isAllUnder = importDirective.isAllUnder,
                         alias = importDirective.aliasName?.let(Name::identifier)
                     )
-                    return handler.psiFactory.createImportDirective(newImportPath)
+                    importDirective.replace(handler.psiFactory.createImportDirective(newImportPath))
                 }
 
                 override fun visitTypeAlias(typeAlias: KtTypeAlias, parentAccessibleDeclarationNames: Set<Name>) =
@@ -392,7 +390,6 @@ private class ExtTestDataFile(
 
     /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
     private fun makeMutableObjects() = with(structure) {
-        // Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable.
         filesToTransform.forEach { handler ->
             handler.accept(object : KtTreeVisitorVoid() {
                 override fun visitObjectDeclaration(objectDeclaration: KtObjectDeclaration) {
