@@ -65,7 +65,7 @@ internal class TestCompilationFactory(private val environment: TestEnvironment) 
                     libraries = sourceModule.allDependencies.map { moduleToKlib(it, freeCompilerArgs) },
                     friends = sourceModule.allFriends.map { moduleToKlib(it, freeCompilerArgs) }
                 ),
-                expectedArtifactFile = artifactFileForKlib(sourceModule),
+                expectedArtifactFile = artifactFileForKlib(sourceModule, freeCompilerArgs),
                 specificCompilerArgs = { add("-produce", "library") }
             )
         }
@@ -79,13 +79,17 @@ internal class TestCompilationFactory(private val environment: TestEnvironment) 
     private fun artifactFileForExecutable(module: TestModule.Exclusive) =
         singleModuleArtifactFile(module, environment.globalEnvironment.target.family.exeSuffix)
 
-    private fun artifactFileForKlib(module: TestModule) = when (module) {
+    private fun artifactFileForKlib(module: TestModule, freeCompilerArgs: TestCompilerArgs) = when (module) {
         is TestModule.Exclusive -> singleModuleArtifactFile(module, "klib")
-        is TestModule.Shared -> sharedModulesOutputDir.resolve("${module.name}.klib")
+        is TestModule.Shared -> sharedModulesOutputDir.resolve("${module.name}-${prettyHash(freeCompilerArgs.hashCode())}.klib")
     }
 
     private fun singleModuleArtifactFile(module: TestModule.Exclusive, extension: String): File {
-        val artifactFileName = "${module.testCase.testDataFile.nameWithoutExtension}.${module.name}.$extension"
+        val artifactFileName = buildString {
+            append(module.testCase.nominalPackageName.replace('.', '_')).append('.')
+            if (extension == "klib") append(module.name).append('.')
+            append(extension)
+        }
         return artifactDirForPackageName(module.testCase.nominalPackageName).resolve(artifactFileName)
     }
 
@@ -114,7 +118,7 @@ internal class TestCompilationFactory(private val environment: TestEnvironment) 
             if (commonPackageName != null)
                 append(commonPackageName.replace('.', '_')).append('-')
 
-            append(hash.toUInt().toString(16).padStart(8, '0'))
+            append(prettyHash(hash))
 
             append('.').append(extension)
         }
@@ -130,6 +134,8 @@ internal class TestCompilationFactory(private val environment: TestEnvironment) 
 
         return outputDir
     }
+
+    private fun prettyHash(hash: Int) = hash.toUInt().toString(16).padStart(8, '0')
 }
 
 internal interface TestCompilation {
@@ -198,9 +204,12 @@ private class TestCompilationImpl(
             "-Xskip-prerelease-check",
             "-Xverify-ir"
         )
+
         addFlattened(dependencies.libraries) { library -> listOf("-l", library.resultingArtifact.path) }
-        addFlattened(dependencies.friends) { friend -> listOf("-friend-modules", friend.resultingArtifact.path) }
-        add(dependencies.includedLibraries) { include -> "-Xinclude=$include" }
+        dependencies.friends.takeIf(Collection<*>::isNotEmpty)?.let { friends ->
+            add("-friend-modules", friends.joinToString(File.pathSeparator) { friend -> friend.resultingArtifact.path })
+        }
+        add(dependencies.includedLibraries) { include -> "-Xinclude=${include.resultingArtifact.path}" }
         add(freeCompilerArgs.compilerArgs)
     }
 
