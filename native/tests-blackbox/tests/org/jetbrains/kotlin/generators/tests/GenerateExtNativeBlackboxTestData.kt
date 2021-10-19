@@ -106,10 +106,17 @@ private class ExtTestDataFile(
 ) {
     private val structure = ExtTestDataFileStructure({}, testDataFile) { line ->
         if (line.parseDirectiveName() != null) {
-            // Remove all directives from the text.
+            // Remove all directives from test files. These directives are not needed anymore as they are already
+            // read and stored in [settings] property. Moreover, these directives if left in test file can potentially conflict with
+            // Native-specific test directives to be added (see [TestDirectives] for details). Also, they will create unnecessary "noise".
+            // Examples:
+            //   // !LANGUAGE: +NewInference
+            //   // LANGUAGE: -ApproximateIntegerLiteralTypesInReceiverPosition
+            //   // !USE_EXPERIMENTAL: kotlin.contracts.ExperimentalContracts
             null
         } else {
-            // Remove all diagnostic parameters from the text. Examples: <!NO_TAIL_CALLS_FOUND!>, <!NON_TAIL_RECURSIVE_CALL!>, <!>.
+            // Remove all diagnostic parameters from the text. Examples:
+            //   <!NO_TAIL_CALLS_FOUND!>, <!NON_TAIL_RECURSIVE_CALL!>, <!>.
             line.replace(DIAGNOSTIC_REGEX) { match -> match.groupValues[1] }
         }
     }
@@ -152,6 +159,25 @@ private class ExtTestDataFile(
 
         destinationFile.writeFileWithLogging(structure.generateTextExcludingSupportModule(assembleFreeCompilerArgs()))
         structure.generateSharedSupportModule(sharedTestModules::addFile)
+    }
+
+    /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
+    private fun makeMutableObjects() = with(structure) {
+        filesToTransform.forEach { handler ->
+            handler.accept(object : KtTreeVisitorVoid() {
+                override fun visitObjectDeclaration(objectDeclaration: KtObjectDeclaration) {
+                    if (!objectDeclaration.isObjectLiteral()) {
+                        // FIXME: find only those that have vars inside
+                        addAnnotationEntry(
+                            objectDeclaration,
+                            handler.psiFactory.createAnnotationEntry(THREAD_LOCAL_ANNOTATION)
+                        ).ensureSurroundedByWhiteSpace(" ")
+                    }
+
+                    super.visitObjectDeclaration(objectDeclaration)
+                }
+            })
+        }
     }
 
     /**
@@ -395,25 +421,6 @@ private class ExtTestDataFile(
         }
     }
 
-    /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
-    private fun makeMutableObjects() = with(structure) {
-        filesToTransform.forEach { handler ->
-            handler.accept(object : KtTreeVisitorVoid() {
-                override fun visitObjectDeclaration(objectDeclaration: KtObjectDeclaration) {
-                    if (!objectDeclaration.isObjectLiteral()) {
-                        // FIXME: find only those that have vars inside
-                        addAnnotationEntry(
-                            objectDeclaration,
-                            handler.psiFactory.createAnnotationEntry(THREAD_LOCAL_ANNOTATION)
-                        ).ensureSurroundedByWhiteSpace(" ")
-                    }
-
-                    super.visitObjectDeclaration(objectDeclaration)
-                }
-            })
-        }
-    }
-
     /** Adds a wrapper to run it as Kotlin test. */
     private fun generateTestLauncher(entryPointFunctionFQN: String, fileLevelAnnotations: Set<String>) {
         val fileText = buildString {
@@ -490,7 +497,7 @@ private class ExtTestDataFileSettings(
 private class ExtTestDataFileStructure(
     parentDisposable: Disposable,
     originalTestDataFile: File,
-    cleanUpTransformation: (String) -> String? // Line -> transformed line (or null if line should be skipped).
+    initialCleanUpTransformation: (String) -> String? // Line -> transformed line (or null if the line should be omitted).
 ) {
     private val originalTestDataFileRelativePath = originalTestDataFile.relativeTo(File(KtTestUtil.getHomeDirectory()))
 
@@ -506,7 +513,7 @@ private class ExtTestDataFileStructure(
 
         // Clean up contents of every individual test file. Important: This should be done only after parsing testData file,
         // because parsing of testData file relies on certain directives which could be removed by the transformation.
-        generatedFiles.forEach { file -> file.text = file.text.transformByLines(cleanUpTransformation) }
+        generatedFiles.forEach { file -> file.text = file.text.transformByLines(initialCleanUpTransformation) }
 
         modules = generatedFiles.map { it.module }.associateBy { it.name }
 
