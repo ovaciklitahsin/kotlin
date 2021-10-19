@@ -88,7 +88,7 @@ internal class ExtTestDataConfig(
                 .onEnter { directory -> directory !in excludedItems }
                 .filter { file -> file.isFile && file.extension == "kt" && file !in excludedItems }
                 .forEach { file ->
-                    val disposable = Disposer.newDisposable("Generating testData file $testDataSource")
+                    val disposable = Disposer.newDisposable("Generating testData file \"$testDataSource\"")
                     try {
                         ExtTestDataFile(
                             parentDisposable = disposable,
