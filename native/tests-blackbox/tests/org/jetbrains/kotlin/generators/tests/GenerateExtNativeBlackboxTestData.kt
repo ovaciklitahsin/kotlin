@@ -149,10 +149,10 @@ private class ExtTestDataFile(
     fun generateNewTestDataFileIfNecessary(sharedTestModules: SharedTestModules) {
         if (!shouldBeGenerated()) return
 
-        makeMutableObjects()
+        makeObjectsMutable()
         patchPackageNames()
-        val (entryPointFunctionFQN2, fileLevelAnnotations) = findEntryPoint()
-        generateTestLauncher(entryPointFunctionFQN2, fileLevelAnnotations)
+        val (entryPointFunctionFQN, fileLevelAnnotations) = findEntryPoint()
+        generateTestLauncher(entryPointFunctionFQN, fileLevelAnnotations)
 
         val relativeFile = testDataFile.relativeTo(testDataSourceDir)
         val destinationFile = testDataDestinationDir.resolve(relativeFile)
@@ -162,7 +162,7 @@ private class ExtTestDataFile(
     }
 
     /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
-    private fun makeMutableObjects() = with(structure) {
+    private fun makeObjectsMutable() = with(structure) {
         filesToTransform.forEach { handler ->
             handler.accept(object : KtTreeVisitorVoid() {
                 override fun visitObjectDeclaration(objectDeclaration: KtObjectDeclaration) {
