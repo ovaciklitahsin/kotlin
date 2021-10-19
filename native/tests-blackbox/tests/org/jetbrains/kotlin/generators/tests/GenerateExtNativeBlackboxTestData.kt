@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.generators.tests
 import com.intellij.core.CoreApplicationEnvironment
 import com.intellij.mock.MockProject
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import com.intellij.pom.PomModel
 import com.intellij.pom.core.impl.PomModelImpl
 import com.intellij.pom.tree.TreeAspect
@@ -87,11 +88,17 @@ internal class ExtTestDataConfig(
                 .onEnter { directory -> directory !in excludedItems }
                 .filter { file -> file.isFile && file.extension == "kt" && file !in excludedItems }
                 .forEach { file ->
-                    ExtTestDataFile(
-                        testDataFile = file,
-                        testDataSourceDir = testDataSourceDir,
-                        testDataDestinationDir = testDataDestinationDir
-                    ).generateNewTestDataFileIfNecessary(sharedModules)
+                    val disposable = Disposer.newDisposable("Generating testData file $testDataSource")
+                    try {
+                        ExtTestDataFile(
+                            parentDisposable = disposable,
+                            testDataFile = file,
+                            testDataSourceDir = testDataSourceDir,
+                            testDataDestinationDir = testDataDestinationDir
+                        ).generateNewTestDataFileIfNecessary(sharedModules)
+                    } finally {
+                        Disposer.dispose(disposable)
+                    }
                 }
         }
 
@@ -100,11 +107,12 @@ internal class ExtTestDataConfig(
 }
 
 private class ExtTestDataFile(
+    parentDisposable: Disposable,
     private val testDataFile: File,
     private val testDataSourceDir: File,
     private val testDataDestinationDir: File
 ) {
-    private val structure = ExtTestDataFileStructure({}, testDataFile) { line ->
+    private val structure = ExtTestDataFileStructure(parentDisposable, testDataFile) { line ->
         if (line.parseDirectiveName() != null) {
             // Remove all directives from test files. These directives are not needed anymore as they are already
             // read and stored in [settings] property. Moreover, these directives if left in test file can potentially conflict with
