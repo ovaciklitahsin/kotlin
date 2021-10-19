@@ -474,7 +474,6 @@ private class ExtTestDataFile(
 
         private const val THREAD_LOCAL_ANNOTATION = "@kotlin.native.ThreadLocal"
 
-        private val IT_VALUE_PARAMETER_NAME = Name.identifier("it")
         private val BOX_FUNCTION_NAME = Name.identifier("box")
         private val OPT_IN_ANNOTATION_NAME = Name.identifier("OptIn")
         private val HELPERS_PACKAGE_NAME = Name.identifier("helpers")
