@@ -149,7 +149,7 @@ internal interface TestCompilation {
 internal sealed class TestCompilationOutput {
     data class Success(val resultingArtifact: File) : TestCompilationOutput()
     data class Failure(val throwable: Throwable) : TestCompilationOutput()
-    object DependencyFailure : TestCompilationOutput()
+    data class DependencyFailures(val causes: Set<Failure>) : TestCompilationOutput()
 }
 
 /**
@@ -164,10 +164,15 @@ private class TestCompilationDependencies(
     val friends: Collection<TestCompilation> = emptyList(),
     val includedLibraries: Collection<TestCompilation> = emptyList()
 ) {
-    val allSuccessful: Boolean
-        get() = libraries.none { it.output !is TestCompilationOutput.Success }
-                && friends.none { it.output !is TestCompilationOutput.Success }
-                && includedLibraries.none { it.output !is TestCompilationOutput.Success }
+    fun collectFailures(): Set<TestCompilationOutput.Failure> = listOf(libraries, friends, includedLibraries)
+        .flatten()
+        .flatMapToSet { compilation ->
+            when (val output = compilation.output) {
+                is TestCompilationOutput.Failure -> listOf(output)
+                is TestCompilationOutput.DependencyFailures -> output.causes
+                is TestCompilationOutput.Success -> emptyList()
+            }
+        }
 
     companion object {
         val EMPTY = TestCompilationDependencies(emptyList(), emptyList(), emptyList())
@@ -182,10 +187,11 @@ private class TestCompilationImpl(
     private val expectedArtifactFile: File,
     private val specificCompilerArgs: ArgsBuilder.() -> Unit
 ) : TestCompilation {
-    // Runs the compiler and memoizes the result on property access.
+    // Runs the compiler and memorizes the result on property access.
     override val output: TestCompilationOutput by lazy {
-        if (!dependencies.allSuccessful)
-            TestCompilationOutput.DependencyFailure
+        val failures = dependencies.collectFailures()
+        if (failures.isNotEmpty())
+            TestCompilationOutput.DependencyFailures(causes = failures)
         else try {
             doCompile()
             TestCompilationOutput.Success(expectedArtifactFile)

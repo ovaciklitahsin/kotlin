@@ -13,7 +13,7 @@ dependencies {
     testImplementation(kotlinStdlib())
     testImplementation(intellijCoreDep()) { includeJars("intellij-core") }
     testImplementation(intellijPluginDep("java"))
-    testImplementation(project(":kotlin-compiler-runner"))
+    testImplementation(project(":kotlin-compiler-runner-unshaded"))
     testImplementation(projectTests(":compiler:tests-common"))
     testImplementation(projectTests(":compiler:tests-common-new"))
     testImplementation(projectTests(":compiler:test-infrastructure"))
@@ -22,7 +22,7 @@ dependencies {
 
     testRuntimeOnly(intellijDep()) { includeJars("trove4j", "intellij-deps-fastutil-8.4.1-4") }
 
-    kotlinNativeCompilerClassPath(projectRuntimeJar(":kotlin-native-compiler-embeddable"))
+    kotlinNativeCompilerClassPath(project(":kotlin-native-compiler-embeddable"))
 }
 
 val generationRoot = projectDir.resolve("tests-gen")

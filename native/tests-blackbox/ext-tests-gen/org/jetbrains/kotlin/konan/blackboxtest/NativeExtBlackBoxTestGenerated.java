@@ -65,6 +65,71 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Nested
+            @TestMetadata("native/tests-blackbox/ext-testData/codegen/box/annotations/instances")
+            @TestDataPath("$PROJECT_ROOT")
+            @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
+            public class Instances {
+                @Test
+                public void testAllFilesPresentInInstances() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/box/annotations/instances"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                }
+
+                @Test
+                @TestMetadata("annotationEqHc.kt")
+                public void testAnnotationEqHc() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/annotationEqHc.kt");
+                }
+
+                @Test
+                @TestMetadata("annotationFromStdlib.kt")
+                public void testAnnotationFromStdlib() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/annotationFromStdlib.kt");
+                }
+
+                @Test
+                @TestMetadata("annotationInstances.kt")
+                public void testAnnotationInstances() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/annotationInstances.kt");
+                }
+
+                @Test
+                @TestMetadata("annotationInstancesEmptyDefault.kt")
+                public void testAnnotationInstancesEmptyDefault() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/annotationInstancesEmptyDefault.kt");
+                }
+
+                @Test
+                @TestMetadata("annotationToString.kt")
+                public void testAnnotationToString() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/annotationToString.kt");
+                }
+
+                @Test
+                @TestMetadata("inInlineFunction.kt")
+                public void testInInlineFunction() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/inInlineFunction.kt");
+                }
+
+                @Test
+                @TestMetadata("multifileEqHc.kt")
+                public void testMultifileEqHc() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/multifileEqHc.kt");
+                }
+
+                @Test
+                @TestMetadata("multiplatformInstantiation.kt")
+                public void testMultiplatformInstantiation() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/multiplatformInstantiation.kt");
+                }
+
+                @Test
+                @TestMetadata("nestedAnnotationInstances.kt")
+                public void testNestedAnnotationInstances() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/annotations/instances/nestedAnnotationInstances.kt");
+                }
+            }
+
+            @Nested
             @TestMetadata("native/tests-blackbox/ext-testData/codegen/box/annotations/typeAnnotations")
             @TestDataPath("$PROJECT_ROOT")
             @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
@@ -245,6 +310,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("collectionGetMultiIndex.kt")
             public void testCollectionGetMultiIndex() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/collectionGetMultiIndex.kt");
+            }
+
+            @Test
+            @TestMetadata("constantArrayOfAny.kt")
+            public void testConstantArrayOfAny() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/constantArrayOfAny.kt");
             }
 
             @Test
@@ -608,6 +679,65 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 @TestMetadata("reversedReversedOriginalUpdatedInLoopBody.kt")
                 public void testReversedReversedOriginalUpdatedInLoopBody() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInReversed/reversedReversedOriginalUpdatedInLoopBody.kt");
+                }
+            }
+
+            @Nested
+            @TestMetadata("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray")
+            @TestDataPath("$PROJECT_ROOT")
+            @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
+            public class ForInUnsignedArray {
+                @Test
+                public void testAllFilesPresentInForInUnsignedArray() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArray.kt")
+                public void testForInUnsignedArray() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArray.kt");
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArrayIndices.kt")
+                public void testForInUnsignedArrayIndices() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArrayIndices.kt");
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArrayIndicesReversed.kt")
+                public void testForInUnsignedArrayIndicesReversed() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArrayIndicesReversed.kt");
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArrayReversed.kt")
+                public void testForInUnsignedArrayReversed() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArrayReversed.kt");
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArrayWithIndex.kt")
+                public void testForInUnsignedArrayWithIndex() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArrayWithIndex.kt");
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArrayWithIndexNoElementVar.kt")
+                public void testForInUnsignedArrayWithIndexNoElementVar() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArrayWithIndexNoElementVar.kt");
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArrayWithIndexNoIndexVar.kt")
+                public void testForInUnsignedArrayWithIndexNoIndexVar() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArrayWithIndexNoIndexVar.kt");
+                }
+
+                @Test
+                @TestMetadata("forInUnsignedArrayWithIndexReversed.kt")
+                public void testForInUnsignedArrayWithIndexReversed() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/arrays/forInUnsignedArray/forInUnsignedArrayWithIndexReversed.kt");
                 }
             }
 
@@ -1283,6 +1413,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt46389.kt")
+            public void testKt46389() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/bridges/kt46389.kt");
+            }
+
+            @Test
             @TestMetadata("longChainOneBridge.kt")
             public void testLongChainOneBridge() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/bridges/longChainOneBridge.kt");
@@ -1550,6 +1686,36 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("callableReferenceOfCompanionConst.kt")
+            public void testCallableReferenceOfCompanionConst() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/callableReferenceOfCompanionConst.kt");
+            }
+
+            @Test
+            @TestMetadata("callableReferenceOfCompanionMethod.kt")
+            public void testCallableReferenceOfCompanionMethod() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/callableReferenceOfCompanionMethod.kt");
+            }
+
+            @Test
+            @TestMetadata("callableReferenceOfCompanionProperty.kt")
+            public void testCallableReferenceOfCompanionProperty() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/callableReferenceOfCompanionProperty.kt");
+            }
+
+            @Test
+            @TestMetadata("callableReferenceOfKotlinNestedClass.kt")
+            public void testCallableReferenceOfKotlinNestedClass() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/callableReferenceOfKotlinNestedClass.kt");
+            }
+
+            @Test
+            @TestMetadata("callableReferenceOfObjectMethod.kt")
+            public void testCallableReferenceOfObjectMethod() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/callableReferenceOfObjectMethod.kt");
+            }
+
+            @Test
             @TestMetadata("charArrayOf.kt")
             public void testCharArrayOf() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/charArrayOf.kt");
@@ -1608,6 +1774,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestDataPath("$PROJECT_ROOT")
             @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
             public class AdaptedReferences {
+                @Test
+                @TestMetadata("adaptedArrayOf.kt")
+                public void testAdaptedArrayOf() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/adaptedReferences/adaptedArrayOf.kt");
+                }
+
                 @Test
                 @TestMetadata("adaptedVarargFunImportedFromObject.kt")
                 public void testAdaptedVarargFunImportedFromObject() throws Exception {
@@ -1728,9 +1900,21 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 }
 
                 @Test
+                @TestMetadata("suspendUnitConversion.kt")
+                public void testSuspendUnitConversion() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/adaptedReferences/suspendUnitConversion.kt");
+                }
+
+                @Test
                 @TestMetadata("unboundReferences.kt")
                 public void testUnboundReferences() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/adaptedReferences/unboundReferences.kt");
+                }
+
+                @Test
+                @TestMetadata("varargFromBaseClass.kt")
+                public void testVarargFromBaseClass() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/callableReference/adaptedReferences/varargFromBaseClass.kt");
                 }
 
                 @Test
@@ -2852,6 +3036,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("kt22714.kt")
             public void testKt22714() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/casts/kt22714.kt");
+            }
+
+            @Test
+            @TestMetadata("kt48927_privateMethodOnDerivedCastToBase.kt")
+            public void testKt48927_privateMethodOnDerivedCastToBase() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/casts/kt48927_privateMethodOnDerivedCastToBase.kt");
             }
 
             @Test
@@ -4550,6 +4740,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("genericLambdaOnStringCompanion.kt")
+            public void testGenericLambdaOnStringCompanion() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/companion/genericLambdaOnStringCompanion.kt");
+            }
+
+            @Test
             @TestMetadata("inlineFunctionCompanionPropertyAccess.kt")
             public void testInlineFunctionCompanionPropertyAccess() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/companion/inlineFunctionCompanionPropertyAccess.kt");
@@ -5911,9 +6107,21 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 }
 
                 @Test
+                @TestMetadata("forInListWithIndexBreak.kt")
+                public void testForInListWithIndexBreak() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/controlStructures/forInIterableWithIndex/forInListWithIndexBreak.kt");
+                }
+
+                @Test
                 @TestMetadata("forInListWithIndexBreakAndContinue.kt")
                 public void testForInListWithIndexBreakAndContinue() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/controlStructures/forInIterableWithIndex/forInListWithIndexBreakAndContinue.kt");
+                }
+
+                @Test
+                @TestMetadata("forInListWithIndexContinue.kt")
+                public void testForInListWithIndexContinue() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/controlStructures/forInIterableWithIndex/forInListWithIndexContinue.kt");
                 }
 
                 @Test
@@ -8855,6 +9063,23 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
         }
 
         @Nested
+        @TestMetadata("native/tests-blackbox/ext-testData/codegen/box/correctFrontendCode")
+        @TestDataPath("$PROJECT_ROOT")
+        @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
+        public class CorrectFrontendCode {
+            @Test
+            public void testAllFilesPresentInCorrectFrontendCode() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/box/correctFrontendCode"), Pattern.compile("^(.+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("privateNestedClassInSuper.kt")
+            public void testPrivateNestedClassInSuper() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/correctFrontendCode/privateNestedClassInSuper.kt");
+            }
+        }
+
+        @Nested
         @TestMetadata("native/tests-blackbox/ext-testData/codegen/box/dataClasses")
         @TestDataPath("$PROJECT_ROOT")
         @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
@@ -9231,6 +9456,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("captureInTailrec.kt")
+            public void testCaptureInTailrec() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/defaultArguments/captureInTailrec.kt");
+            }
+
+            @Test
             @TestMetadata("complexInheritance.kt")
             public void testComplexInheritance() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/defaultArguments/complexInheritance.kt");
@@ -9303,6 +9534,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt48391.kt")
+            public void testKt48391() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/defaultArguments/kt48391.kt");
+            }
+
+            @Test
             @TestMetadata("kt6382.kt")
             public void testKt6382() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/defaultArguments/kt6382.kt");
@@ -9330,6 +9567,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("simpleFromOtherFile.kt")
             public void testSimpleFromOtherFile() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/defaultArguments/simpleFromOtherFile.kt");
+            }
+
+            @Test
+            @TestMetadata("useNextParamInLambdaTailrec.kt")
+            public void testUseNextParamInLambdaTailrec() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/defaultArguments/useNextParamInLambdaTailrec.kt");
             }
 
             @Test
@@ -10206,6 +10449,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 }
 
                 @Test
+                @TestMetadata("kt48825.kt")
+                public void testKt48825() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/delegatedProperty/optimizedDelegatedProperties/kt48825.kt");
+                }
+
+                @Test
                 @TestMetadata("lazy.kt")
                 public void testLazy() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/delegatedProperty/optimizedDelegatedProperties/lazy.kt");
@@ -10791,6 +11040,18 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                     }
 
                     @Test
+                    @TestMetadata("tailrecWithExplicitCompanionObjectDispatcher.kt")
+                    public void testTailrecWithExplicitCompanionObjectDispatcher() throws Exception {
+                        runTest("native/tests-blackbox/ext-testData/codegen/box/diagnostics/functions/tailRecursion/tailrecWithExplicitCompanionObjectDispatcher.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("tailrecWithExplicitObjectDispatcher.kt")
+                    public void testTailrecWithExplicitObjectDispatcher() throws Exception {
+                        runTest("native/tests-blackbox/ext-testData/codegen/box/diagnostics/functions/tailRecursion/tailrecWithExplicitObjectDispatcher.kt");
+                    }
+
+                    @Test
                     @TestMetadata("thisReferences.kt")
                     public void testThisReferences() throws Exception {
                         runTest("native/tests-blackbox/ext-testData/codegen/box/diagnostics/functions/tailRecursion/thisReferences.kt");
@@ -11101,6 +11362,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("getEnumEntityByOrdinal.kt")
+            public void testGetEnumEntityByOrdinal() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/enum/getEnumEntityByOrdinal.kt");
+            }
+
+            @Test
             @TestMetadata("inPackage.kt")
             public void testInPackage() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/enum/inPackage.kt");
@@ -11323,6 +11590,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("ordinalsWithEnumEntitiesOverrides.kt")
+            public void testOrdinalsWithEnumEntitiesOverrides() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/enum/ordinalsWithEnumEntitiesOverrides.kt");
+            }
+
+            @Test
             @TestMetadata("overloadedEnumValues.kt")
             public void testOverloadedEnumValues() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/enum/overloadedEnumValues.kt");
@@ -11499,6 +11772,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("extensionFunctionAsSupertype.kt")
+            public void testExtensionFunctionAsSupertype() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/extensionFunctions/extensionFunctionAsSupertype.kt");
+            }
+
+            @Test
             @TestMetadata("kt1061.kt")
             public void testKt1061() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/extensionFunctions/kt1061.kt");
@@ -11629,12 +11908,6 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             public void testVirtual() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/extensionFunctions/virtual.kt");
             }
-
-            @Test
-            @TestMetadata("whenFail.kt")
-            public void testWhenFail() throws Exception {
-                runTest("native/tests-blackbox/ext-testData/codegen/box/extensionFunctions/whenFail.kt");
-            }
         }
 
         @Nested
@@ -11758,6 +12031,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("function.kt")
             public void testFunction() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/fakeOverride/function.kt");
+            }
+
+            @Test
+            @TestMetadata("internalFromFriendModule.kt")
+            public void testInternalFromFriendModule() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/fakeOverride/internalFromFriendModule.kt");
             }
 
             @Test
@@ -11945,6 +12224,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("someStuff.kt")
+            public void testSomeStuff() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/finally/someStuff.kt");
+            }
+
+            @Test
             @TestMetadata("tryFinally.kt")
             public void testTryFinally() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/finally/tryFinally.kt");
@@ -12084,6 +12369,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("kt46512_indyFunInterfaceOverCallableReference.kt")
             public void testKt46512_indyFunInterfaceOverCallableReference() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/funInterface/kt46512_indyFunInterfaceOverCallableReference.kt");
+            }
+
+            @Test
+            @TestMetadata("kt46908_functionSupertype.kt")
+            public void testKt46908_functionSupertype() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/funInterface/kt46908_functionSupertype.kt");
             }
 
             @Test
@@ -12436,6 +12727,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("nothisnoclosure.kt")
             public void testNothisnoclosure() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/functions/nothisnoclosure.kt");
+            }
+
+            @Test
+            @TestMetadata("overloadByInterfaceType.kt")
+            public void testOverloadByInterfaceType() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/functions/overloadByInterfaceType.kt");
             }
 
             @Test
@@ -13350,6 +13647,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt45118.kt")
+            public void testKt45118() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/inference/kt45118.kt");
+            }
+
+            @Test
             @TestMetadata("lambdaWithStarReturn.kt")
             public void testLambdaWithStarReturn() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/inference/lambdaWithStarReturn.kt");
@@ -13489,6 +13792,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 @TestMetadata("kt47744.kt")
                 public void testKt47744() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/inference/builderInference/kt47744.kt");
+                }
+
+                @Test
+                @TestMetadata("kt48445.kt")
+                public void testKt48445() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/inference/builderInference/kt48445.kt");
                 }
 
                 @Test
@@ -14826,6 +15135,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 }
 
                 @Test
+                @TestMetadata("uncastInlineClassToAnyAndBack.kt")
+                public void testUncastInlineClassToAnyAndBack() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/inlineClasses/boxReturnValueOnOverride/uncastInlineClassToAnyAndBack.kt");
+                }
+
+                @Test
                 @TestMetadata("unrelatedGenerics.kt")
                 public void testUnrelatedGenerics() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/inlineClasses/boxReturnValueOnOverride/unrelatedGenerics.kt");
@@ -16105,6 +16420,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt46829.kt")
+            public void testKt46829() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/innerNested/kt46829.kt");
+            }
+
+            @Test
             @TestMetadata("kt5363.kt")
             public void testKt5363() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/innerNested/kt5363.kt");
@@ -16556,9 +16877,27 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("lambdaWithLoop.kt")
+            public void testLambdaWithLoop() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/ir/lambdaWithLoop.kt");
+            }
+
+            @Test
             @TestMetadata("objectClass.kt")
             public void testObjectClass() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/ir/objectClass.kt");
+            }
+
+            @Test
+            @TestMetadata("recursiveGeneric.kt")
+            public void testRecursiveGeneric() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/ir/recursiveGeneric.kt");
+            }
+
+            @Test
+            @TestMetadata("recursiveGeneric2.kt")
+            public void testRecursiveGeneric2() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/ir/recursiveGeneric2.kt");
             }
 
             @Test
@@ -16692,6 +17031,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 @Test
                 public void testAllFilesPresentInSerializationRegressions() throws Exception {
                     KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/box/ir/serializationRegressions"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                }
+
+                @Test
+                @TestMetadata("anonFakeOverride.kt")
+                public void testAnonFakeOverride() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/ir/serializationRegressions/anonFakeOverride.kt");
                 }
 
                 @Test
@@ -17943,6 +18288,23 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/multiplatform/defaultArguments/withTypeParameter.kt");
                 }
             }
+
+            @Nested
+            @TestMetadata("native/tests-blackbox/ext-testData/codegen/box/multiplatform/multiModule")
+            @TestDataPath("$PROJECT_ROOT")
+            @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
+            public class MultiModule {
+                @Test
+                public void testAllFilesPresentInMultiModule() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/box/multiplatform/multiModule"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                }
+
+                @Test
+                @TestMetadata("defaultArgument.kt")
+                public void testDefaultArgument() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/multiplatform/multiModule/defaultArgument.kt");
+                }
+            }
         }
 
         @Nested
@@ -18017,6 +18379,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("kt22410.kt")
             public void testKt22410() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/nullCheckOptimization/kt22410.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49136a.kt")
+            public void testKt49136a() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/nullCheckOptimization/kt49136a.kt");
             }
 
             @Test
@@ -18135,6 +18503,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("initializationOrder.kt")
             public void testInitializationOrder() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/objects/initializationOrder.kt");
+            }
+
+            @Test
+            @TestMetadata("initializationOrderConsts.kt")
+            public void testInitializationOrderConsts() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/objects/initializationOrderConsts.kt");
             }
 
             @Test
@@ -20097,6 +20471,18 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt49203_lateinit.kt")
+            public void testKt49203_lateinit() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/properties/kt49203_lateinit.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49203_var.kt")
+            public void testKt49203_var() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/properties/kt49203_var.kt");
+            }
+
+            @Test
             @TestMetadata("kt613.kt")
             public void testKt613() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/properties/kt613.kt");
@@ -20495,6 +20881,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @Test
             public void testAllFilesPresentInRanges() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/box/ranges"), Pattern.compile("^(.+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("capturedLoopVar.kt")
+            public void testCapturedLoopVar() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/ranges/capturedLoopVar.kt");
             }
 
             @Test
@@ -21490,6 +21882,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 }
 
                 @Test
+                @TestMetadata("forInDownToWithPossibleUnderflow.kt")
+                public void testForInDownToWithPossibleUnderflow() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/ranges/forInDownTo/forInDownToWithPossibleUnderflow.kt");
+                }
+
+                @Test
                 @TestMetadata("forIntInDownTo.kt")
                 public void testForIntInDownTo() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/ranges/forInDownTo/forIntInDownTo.kt");
@@ -21564,6 +21962,24 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 @TestMetadata("forInCollectionTypeParameterIndices.kt")
                 public void testForInCollectionTypeParameterIndices() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/ranges/forInIndices/forInCollectionTypeParameterIndices.kt");
+                }
+
+                @Test
+                @TestMetadata("forInListIndices.kt")
+                public void testForInListIndices() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/ranges/forInIndices/forInListIndices.kt");
+                }
+
+                @Test
+                @TestMetadata("forInListIndicesBreak.kt")
+                public void testForInListIndicesBreak() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/ranges/forInIndices/forInListIndicesBreak.kt");
+                }
+
+                @Test
+                @TestMetadata("forInListIndicesContinue.kt")
+                public void testForInListIndicesContinue() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/box/ranges/forInIndices/forInListIndicesContinue.kt");
                 }
 
                 @Test
@@ -25989,6 +26405,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("callableReferenceInlinedFun.kt")
+            public void testCallableReferenceInlinedFun() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/reified/callableReferenceInlinedFun.kt");
+            }
+
+            @Test
             @TestMetadata("checkcast.kt")
             public void testCheckcast() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/reified/checkcast.kt");
@@ -26185,6 +26607,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("safeCallIOnUninitializedNonNullValue.kt")
+            public void testSafeCallIOnUninitializedNonNullValue() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/safeCall/safeCallIOnUninitializedNonNullValue.kt");
+            }
+
+            @Test
             @TestMetadata("safeCallNotEqPrimitive.kt")
             public void testSafeCallNotEqPrimitive() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/safeCall/safeCallNotEqPrimitive.kt");
@@ -26194,6 +26622,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("safeCallOnLong.kt")
             public void testSafeCallOnLong() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/safeCall/safeCallOnLong.kt");
+            }
+
+            @Test
+            @TestMetadata("safeCallWithElvisFolding.kt")
+            public void testSafeCallWithElvisFolding() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/safeCall/safeCallWithElvisFolding.kt");
             }
         }
 
@@ -27000,6 +27434,30 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("surrogatePair.kt")
             public void testSurrogatePair() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/strings/surrogatePair.kt");
+            }
+
+            @Test
+            @TestMetadata("trimOptimization.kt")
+            public void testTrimOptimization() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/strings/trimOptimization.kt");
+            }
+
+            @Test
+            @TestMetadata("twoArgumentNullableStringOperatorPlus.kt")
+            public void testTwoArgumentNullableStringOperatorPlus() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/strings/twoArgumentNullableStringOperatorPlus.kt");
+            }
+
+            @Test
+            @TestMetadata("twoArgumentNullableStringPlus.kt")
+            public void testTwoArgumentNullableStringPlus() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/strings/twoArgumentNullableStringPlus.kt");
+            }
+
+            @Test
+            @TestMetadata("twoArgumentStringTemplate.kt")
+            public void testTwoArgumentStringTemplate() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/strings/twoArgumentStringTemplate.kt");
             }
         }
 
@@ -28033,6 +28491,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("sillyThings.kt")
+            public void testSillyThings() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/unit/sillyThings.kt");
+            }
+
+            @Test
             @TestMetadata("unitClassObject.kt")
             public void testUnitClassObject() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/unit/unitClassObject.kt");
@@ -28358,6 +28822,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("spreadCopiesArray.kt")
             public void testSpreadCopiesArray() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/box/vararg/spreadCopiesArray.kt");
+            }
+
+            @Test
+            @TestMetadata("useSuspendFunResultAsVararg.kt")
+            public void testUseSuspendFunResultAsVararg() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/box/vararg/useSuspendFunResultAsVararg.kt");
             }
 
             @Test
@@ -28924,6 +29394,29 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
         @Test
         public void testAllFilesPresentInBoxInline() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/boxInline"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @Nested
+        @TestMetadata("native/tests-blackbox/ext-testData/codegen/boxInline/annotations")
+        @TestDataPath("$PROJECT_ROOT")
+        @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
+        public class Annotations {
+            @Test
+            public void testAllFilesPresentInAnnotations() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/boxInline/annotations"), Pattern.compile("^(.+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("annotationInstanceInlining.kt")
+            public void testAnnotationInstanceInlining() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/boxInline/annotations/annotationInstanceInlining.kt");
+            }
+
+            @Test
+            @TestMetadata("instanceInAnonymousClass.kt")
+            public void testInstanceInAnonymousClass() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/boxInline/annotations/instanceInAnonymousClass.kt");
+            }
         }
 
         @Nested
@@ -29770,6 +30263,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                 @TestMetadata("classProperty.kt")
                 public void testClassProperty() throws Exception {
                     runTest("native/tests-blackbox/ext-testData/codegen/boxInline/callableReference/bound/classProperty.kt");
+                }
+
+                @Test
+                @TestMetadata("doubleBoundToThis.kt")
+                public void testDoubleBoundToThis() throws Exception {
+                    runTest("native/tests-blackbox/ext-testData/codegen/boxInline/callableReference/bound/doubleBoundToThis.kt");
                 }
 
                 @Test
@@ -31044,6 +31543,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("fakeOverride.kt")
             public void testFakeOverride() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/boxInline/innerClasses/fakeOverride.kt");
+            }
+
+            @Test
+            @TestMetadata("innerInlineFunCapturesOuter.kt")
+            public void testInnerInlineFunCapturesOuter() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/boxInline/innerClasses/innerInlineFunCapturesOuter.kt");
             }
         }
 
@@ -32894,6 +33399,12 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
             @TestMetadata("inlineOrdinaryOfNoinlineSuspend.kt")
             public void testInlineOrdinaryOfNoinlineSuspend() throws Exception {
                 runTest("native/tests-blackbox/ext-testData/codegen/boxInline/suspend/inlineOrdinaryOfNoinlineSuspend.kt");
+            }
+
+            @Test
+            @TestMetadata("inlinePassthrough.kt")
+            public void testInlinePassthrough() throws Exception {
+                runTest("native/tests-blackbox/ext-testData/codegen/boxInline/suspend/inlinePassthrough.kt");
             }
 
             @Test

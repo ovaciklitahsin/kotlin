@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.generators.tests
 
+import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.konan.blackboxtest.AbstractNativeBlackBoxTest
-import org.jetbrains.kotlin.test.generators.generateTestGroupSuiteWithJUnit5
 
 fun main() {
     System.setProperty("java.awt.headless", "true")
