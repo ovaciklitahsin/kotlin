@@ -230,7 +230,7 @@ private class TestCompilationImpl(
             applySources()
         }
 
-        runCompiler(args, environment.globalEnvironment.lazyKotlinNativeClassLoader)
+        runCompiler(args, expectedArtifactFile, environment.globalEnvironment.lazyKotlinNativeClassLoader)
     }
 }
 
@@ -264,7 +264,9 @@ private inline fun buildArgs(builderAction: ArgsBuilder.() -> Unit): Array<Strin
     return ArgsBuilder().apply(builderAction).build()
 }
 
-private fun runCompiler(args: Array<String>, lazyKotlinNativeClassLoader: Lazy<ClassLoader>) {
+private fun runCompiler(args: Array<String>, expectedArtifactFile: File, lazyKotlinNativeClassLoader: Lazy<ClassLoader>) {
+    dumpCompilerArgs(args, expectedArtifactFile)
+
     val kotlinNativeClassLoader by lazyKotlinNativeClassLoader
 
     val servicesClass = Class.forName(Services::class.java.canonicalName, true, kotlinNativeClassLoader)
@@ -284,30 +286,54 @@ private fun runCompiler(args: Array<String>, lazyKotlinNativeClassLoader: Lazy<C
         ExitCode.valueOf(result.toString())
     }
 
-    val compilerPlainOutput = ByteArrayOutputStream()
-    val messageCollector = PrintStream(compilerPlainOutput).use { printStream ->
-        val messageCollector = GroupingMessageCollector(
-            PrintingMessageCollector(printStream, MessageRenderer.SYSTEM_INDEPENDENT_RELATIVE_PATHS, true),
-            false
-        )
-        processCompilerOutput(
-            messageCollector,
-            OutputItemsCollectorImpl(),
-            compilerXmlOutput,
-            exitCode
-        )
-        messageCollector.flush()
-        messageCollector
+    val messageCollector: MessageCollector
+    val compilerOutput: String
+
+    ByteArrayOutputStream().use { outputStream ->
+        PrintStream(outputStream).use { printStream ->
+            messageCollector = GroupingMessageCollector(
+                PrintingMessageCollector(printStream, MessageRenderer.SYSTEM_INDEPENDENT_RELATIVE_PATHS, true),
+                false
+            )
+            processCompilerOutput(
+                messageCollector,
+                OutputItemsCollectorImpl(),
+                compilerXmlOutput,
+                exitCode
+            )
+            messageCollector.flush()
+        }
+        compilerOutput = outputStream.toString(Charsets.UTF_8.name()).trim()
     }
 
-    fun details() = buildString {
-        appendLine("\n\nExit code: $exitCode")
-        appendLine("\n== BEGIN[COMPILER_OUTPUT] ==")
-        val compilerOutputText = compilerPlainOutput.toString(Charsets.UTF_8.name()).trim()
-        if (compilerOutputText.isNotEmpty()) appendLine(compilerOutputText)
-        appendLine("== END[COMPILER_OUTPUT] ==")
-    }
+    val formattedCompilerOutput = formatCompilerOutput(exitCode, compilerOutput)
+    dumpCompilerOutput(formattedCompilerOutput, expectedArtifactFile)
 
-    assertEquals(ExitCode.OK, exitCode) { "Compilation finished with non-zero exit code. ${details()}" }
-    assertFalse(messageCollector.hasErrors()) { "Compilation finished with errors. ${details()}" }
+    assertEquals(ExitCode.OK, exitCode) { "Compilation finished with non-zero exit code.\n\n$formattedCompilerOutput" }
+    assertFalse(messageCollector.hasErrors()) { "Compilation finished with errors.\n\n$formattedCompilerOutput" }
+}
+
+private fun dumpCompilerArgs(args: Array<String>, expectedArtifactFile: File) {
+    val outputFile = expectedArtifactFile.resolveSibling(expectedArtifactFile.name + ".args")
+    val text = buildString {
+        args.forEachIndexed { index, arg ->
+            if (index > 0) append(if (arg[0] == '-' || arg.substringAfterLast('.') == "kt") '\n' else ' ')
+            append(arg)
+        }
+    }
+    outputFile.writeText(text)
+}
+
+private fun formatCompilerOutput(exitCode: ExitCode, compilerOutput: String) = buildString {
+    appendLine("Exit code: $exitCode(${exitCode.code})")
+    appendLine()
+    appendLine("========== Begin compiler output ==========")
+    if (compilerOutput.isNotEmpty()) appendLine(compilerOutput)
+    appendLine("========== End compiler output ==========")
+
+}
+
+private fun dumpCompilerOutput(formattedCompilerOutput: String, expectedArtifactFile: File) {
+    val outputFile = expectedArtifactFile.resolveSibling(expectedArtifactFile.name + ".out")
+    outputFile.writeText(formattedCompilerOutput)
 }
