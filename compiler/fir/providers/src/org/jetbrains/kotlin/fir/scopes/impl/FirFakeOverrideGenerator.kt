@@ -424,16 +424,16 @@ object FirFakeOverrideGenerator {
         return symbol
     }
 
-    fun createSubstitutionOverrideAccessor(
+    fun createSubstitutionOverrideSyntheticProperty(
         session: FirSession,
         baseProperty: FirSyntheticProperty,
-        baseSymbol: FirAccessorSymbol,
+        baseSymbol: FirSyntheticPropertySymbol,
         newDispatchReceiverType: ConeKotlinType?,
         newReturnType: ConeKotlinType?,
         newGetterParameterTypes: List<ConeKotlinType?>?,
         newSetterParameterTypes: List<ConeKotlinType?>?,
         fakeOverrideSubstitution: FakeOverrideSubstitution?
-    ): FirAccessorSymbol {
+    ): FirSyntheticPropertySymbol {
         val getterSymbol = FirNamedFunctionSymbol(baseSymbol.getterId)
         val getter = createSubstitutionOverrideFunction(
             getterSymbol,
@@ -462,7 +462,7 @@ object FirFakeOverrideGenerator {
         return buildSyntheticProperty {
             moduleData = session.moduleData
             name = baseProperty.name
-            symbol = FirAccessorSymbol(baseSymbol.callableId, baseSymbol.getterId)
+            symbol = baseSymbol.copy()
             delegateGetter = getter
             delegateSetter = setter
             status = baseProperty.status
