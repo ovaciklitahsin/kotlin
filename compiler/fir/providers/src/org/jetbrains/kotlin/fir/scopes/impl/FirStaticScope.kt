@@ -22,7 +22,7 @@ class FirStaticScope(private val delegateScope: FirContainingNamesAwareScope) : 
 
     override fun processFunctionsByName(name: Name, processor: (FirNamedFunctionSymbol) -> Unit) {
         delegateScope.processFunctionsByName(name) {
-            if ((it.fir as? FirSimpleFunction)?.isStatic == true) {
+            if (it.fir.isStatic) {
                 processor(it)
             }
         }
@@ -30,7 +30,7 @@ class FirStaticScope(private val delegateScope: FirContainingNamesAwareScope) : 
 
     override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
         delegateScope.processPropertiesByName(name) {
-            if ((it.fir as? FirCallableDeclaration)?.isStatic == true) {
+            if (it.fir.isStatic) {
                 processor(it)
             }
         }
