@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.psi.addRemoveModifier.addAnnotationEntry
 import org.jetbrains.kotlin.psi.psiUtil.getChildOfType
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
 import org.jetbrains.kotlin.resolve.ImportPath
+import org.jetbrains.kotlin.resolve.checkers.OptInNames
 import org.jetbrains.kotlin.test.*
 import org.jetbrains.kotlin.test.InTextDirectivesUtils.isCompatibleTarget
 import org.jetbrains.kotlin.test.InTextDirectivesUtils.isIgnoredTarget
@@ -129,14 +130,21 @@ private class ExtTestDataFile(
         }
     }
 
-    private val settings = ExtTestDataFileSettings(
-        languageSettings = structure.directives.multiValues(LANGUAGE_DIRECTIVE) {
-            it != "+NewInference" /* It is already on by default, but passing it explicitly turns on a special "compatibility mode" in FE which is not desirable. */
-        },
-        optIns = structure.directives.multiValues(OPT_IN_DIRECTIVE) + structure.directives.multiValues(USE_EXPERIMENTAL_DIRECTIVE),
-        expectActualLinker = EXPECT_ACTUAL_LINKER_DIRECTIVE in structure.directives,
-        effectivePackageName = computePackageName(testDataDir = testDataSourceDir, testDataFile = testDataFile)
-    )
+    private val settings = run {
+        val optIns = structure.directives.multiValues(OPT_IN_DIRECTIVE)
+        val optInsForSourceCode = optIns subtract OPT_INS_PURELY_FOR_COMPILER
+        val optInsForCompiler = optIns intersect OPT_INS_PURELY_FOR_COMPILER
+
+        ExtTestDataFileSettings(
+            languageSettings = structure.directives.multiValues(LANGUAGE_DIRECTIVE) {
+                it != "+NewInference" /* It is already on by default, but passing it explicitly turns on a special "compatibility mode" in FE which is not desirable. */
+            },
+            optInsForSourceCode = optInsForSourceCode + structure.directives.multiValues(USE_EXPERIMENTAL_DIRECTIVE),
+            optInsForCompiler = optInsForCompiler,
+            expectActualLinker = EXPECT_ACTUAL_LINKER_DIRECTIVE in structure.directives,
+            effectivePackageName = computePackageName(testDataDir = testDataSourceDir, testDataFile = testDataFile)
+        )
+    }
 
     private fun shouldBeGenerated(): Boolean =
         isCompatibleTarget(TargetBackend.NATIVE, testDataFile) // Checks TARGET_BACKEND/DONT_TARGET_EXACT_BACKEND directives.
@@ -148,8 +156,8 @@ private class ExtTestDataFile(
 
     private fun assembleFreeCompilerArgs(): List<String> {
         val args = mutableListOf<String>()
-        settings.languageSettings.mapTo(args) { "-XXLanguage:$it" }
-        settings.optIns.mapTo(args) { "-Xopt-in=$it" } // TODO: emit each OptInt as a file-level annotations instead
+        settings.languageSettings.sorted().mapTo(args) { "-XXLanguage:$it" }
+        settings.optInsForCompiler.sorted().mapTo(args) { "-Xopt-in=$it" }
         if (settings.expectActualLinker) args += "-Xexpect-actual-linker"
         return args
     }
@@ -159,7 +167,8 @@ private class ExtTestDataFile(
 
         makeObjectsMutable()
         patchPackageNames()
-        val (entryPointFunctionFQN, fileLevelAnnotations) = findEntryPoint()
+        val fileLevelAnnotations = patchFileLevelAnnotations()
+        val entryPointFunctionFQN = findEntryPoint()
         generateTestLauncher(entryPointFunctionFQN, fileLevelAnnotations)
 
         val relativeFile = testDataFile.relativeTo(testDataSourceDir)
@@ -237,10 +246,10 @@ private class ExtTestDataFile(
                     val newPackageDirective = handler.psiFactory.createPackageDirective(newPackageName)
 
                     if (oldPackageDirective != null) {
-                        // Replace old package directive by a new one.
+                        // Replace old package directive by the new one.
                         oldPackageDirective.replace(newPackageDirective).ensureSurroundedByWhiteSpace("\n\n")
                     } else {
-                        // Insert a package directive immediately after file-level annotations.
+                        // Insert the package directive immediately after file-level annotations.
                         file.addAfter(newPackageDirective, file.fileAnnotationList).ensureSurroundedByWhiteSpace("\n\n")
                     }
 
@@ -378,21 +387,23 @@ private class ExtTestDataFile(
         }
     }
 
-    /** Finds the fully-qualified name of the entry point function (aka `fun box(): String`). */
-    private fun findEntryPoint(): Pair<String, Set<String>> = with(structure) {
-        val result = mutableListOf<Pair<String, Set<String>>>()
+    /**
+     * 1. Collect all file-level annotations that should be added to the launcher. See [generateTestLauncher].
+     * 2. Make sure that the OptIns specified in test directives (see [ExtTestDataFileSettings.optInsForSourceCode]) are represented
+     *    as file-level annotations in every individual test file.
+     */
+    private fun patchFileLevelAnnotations(): List<String> = with(structure) {
+        val allFileLevelAnnotations = hashSetOf<String>()
 
+        fun getAnnotationText(fullyQualifiedName: String) = "@file:${OPT_IN_ANNOTATION_NAME.asString()}($fullyQualifiedName::class)"
+
+        // Every OptIn specified in test directive should be represented as a file-level annotation.
+        settings.optInsForSourceCode.mapTo(allFileLevelAnnotations, ::getAnnotationText)
+
+        // Now, collect file-level annotations already present in test files.
         filesToTransform.forEach { handler ->
             handler.accept(object : KtTreeVisitorVoid() {
                 override fun visitKtFile(file: KtFile) {
-                    val hasBoxFunction = file.getChildrenOfType<KtNamedFunction>().any { function ->
-                        function.name == BOX_FUNCTION_NAME.asString() && function.valueParameters.isEmpty()
-                    }
-                    if (!hasBoxFunction) return
-
-                    val boxFunctionFqName = file.packageFqName.child(BOX_FUNCTION_NAME).asString()
-                    handler.module.markAsMain()
-
                     val importDirectives: Map<String, String> by lazy {
                         file.importDirectives.mapNotNull { importDirective ->
                             val importedFqName = importDirective.importedFqName ?: return@mapNotNull null
@@ -401,36 +412,85 @@ private class ExtTestDataFile(
                         }.toMap()
                     }
 
-                    val annotations = file.annotationEntries.mapNotNullToSet { annotationEntry ->
+                    file.annotationEntries.mapNotNullTo(allFileLevelAnnotations) { annotationEntry ->
                         val constructorCallee = annotationEntry.getChildOfType<KtConstructorCalleeExpression>()
                         val constructorType = constructorCallee?.typeReference?.getChildOfType<KtUserType>()
                         val constructorTypeName = constructorType?.collectNames()?.singleOrNull()
 
-                        if (constructorTypeName != OPT_IN_ANNOTATION_NAME) return@mapNotNullToSet null
+                        if (constructorTypeName != OPT_IN_ANNOTATION_NAME) return@mapNotNullTo null
 
                         val valueArgument = annotationEntry.valueArguments.singleOrNull()
                         val classLiteral = valueArgument?.getArgumentExpression() as? KtClassLiteralExpression
 
-                        return@mapNotNullToSet if (classLiteral?.getChildOfType<KtDotQualifiedExpression>() != null)
+                        if (classLiteral?.getChildOfType<KtDotQualifiedExpression>() != null)
                             annotationEntry.text
                         else
                             classLiteral?.getChildOfType<KtNameReferenceExpression>()?.getReferencedName()
                                 ?.let(importDirectives::get)
-                                ?.let { fullyQualifiedName -> "@file:${OPT_IN_ANNOTATION_NAME.asString()}($fullyQualifiedName::class)" }
+                                ?.let { fullyQualifiedName -> getAnnotationText(fullyQualifiedName) }
                     }
-
-                    result += boxFunctionFqName to annotations
                 }
             })
         }
 
-        return result.singleOrNull() ?: fail {
-            "Exactly one entry point function is expected in $testDataFile. But ${if (result.size == 0) "none" else result.size} were found."
+        val allFileLevelAnnotationsSorted = allFileLevelAnnotations.sorted()
+
+        // Finally, make sure that every test file contains all the necessary file-level annotations.
+        if (allFileLevelAnnotationsSorted.isNotEmpty()) {
+            filesToTransform.forEach { handler ->
+                handler.accept(object : KtTreeVisitorVoid() {
+                    override fun visitKtFile(file: KtFile) {
+                        val oldFileAnnotationList = file.fileAnnotationList
+
+                        val newFileAnnotationsList = handler.psiFactory.createFile(buildString {
+                            allFileLevelAnnotationsSorted.forEach(::appendLine)
+                        }).fileAnnotationList!!
+
+                        if (oldFileAnnotationList != null) {
+                            // Replace old annotations list by the new one.
+                            oldFileAnnotationList.replace(newFileAnnotationsList).ensureSurroundedByWhiteSpace("\n\n")
+                        } else {
+                            // Insert the annotations list immediately before package directive.
+                            file.addBefore(newFileAnnotationsList, file.packageDirective).ensureSurroundedByWhiteSpace("\n\n")
+                        }
+                    }
+                })
+            }
         }
+
+        return allFileLevelAnnotationsSorted
+    }
+
+    /** Finds the fully-qualified name of the entry point function (aka `fun box(): String`). */
+    private fun findEntryPoint(): String = with(structure) {
+        val result = mutableListOf<String>()
+
+        filesToTransform.forEach { handler ->
+            handler.accept(object : KtTreeVisitorVoid() {
+                override fun visitKtFile(file: KtFile) {
+                    val hasBoxFunction = file.getChildrenOfType<KtNamedFunction>().any { function ->
+                        function.name == BOX_FUNCTION_NAME.asString() && function.valueParameters.isEmpty()
+                    }
+
+                    if (hasBoxFunction) {
+                        val boxFunctionFqName = file.packageFqName.child(BOX_FUNCTION_NAME).asString()
+                        result += boxFunctionFqName
+
+                        handler.module.markAsMain()
+                    }
+                }
+            })
+        }
+
+        return result.singleOrNull()
+            ?: fail {
+                "Exactly one entry point function is expected in $testDataFile. " +
+                        "But ${if (result.size == 0) "none" else result.size} were found: $result"
+            }
     }
 
     /** Adds a wrapper to run it as Kotlin test. */
-    private fun generateTestLauncher(entryPointFunctionFQN: String, fileLevelAnnotations: Set<String>) {
+    private fun generateTestLauncher(entryPointFunctionFQN: String, fileLevelAnnotations: List<String>) {
         val fileText = buildString {
             if (fileLevelAnnotations.isNotEmpty()) {
                 fileLevelAnnotations.forEach(this::appendLine)
@@ -476,9 +536,13 @@ private class ExtTestDataFile(
             "-UseCorrectExecutionOrderForVarargArguments"           // Run only correct one
         )
 
-        private const val USE_EXPERIMENTAL_DIRECTIVE = "USE_EXPERIMENTAL"
         private const val EXPECT_ACTUAL_LINKER_DIRECTIVE = "EXPECT_ACTUAL_LINKER"
+        private const val USE_EXPERIMENTAL_DIRECTIVE = "USE_EXPERIMENTAL"
+
         private const val OPT_IN_DIRECTIVE = "OPT_IN"
+        private val OPT_INS_PURELY_FOR_COMPILER = setOf(
+            OptInNames.REQUIRES_OPT_IN_FQ_NAME.asString()
+        )
 
         private fun Directives.multiValues(key: String, predicate: (String) -> Boolean = { true }): Set<String> =
             listValues(key)?.flatMap { it.split(' ') }?.filter(predicate)?.toSet().orEmpty()
@@ -496,7 +560,8 @@ private class ExtTestDataFile(
 
 private class ExtTestDataFileSettings(
     val languageSettings: Set<String>,
-    val optIns: Set<String>,
+    val optInsForSourceCode: Set<String>,
+    val optInsForCompiler: Set<String>,
     val expectActualLinker: Boolean,
     val effectivePackageName: PackageName
 )
