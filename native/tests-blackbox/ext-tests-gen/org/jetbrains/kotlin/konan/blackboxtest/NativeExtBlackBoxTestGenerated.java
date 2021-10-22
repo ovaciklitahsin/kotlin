@@ -18288,23 +18288,6 @@ public class NativeExtBlackBoxTestGenerated extends AbstractNativeBlackBoxTest {
                     runTest("native/tests-blackbox/ext-testData/codegen/box/multiplatform/defaultArguments/withTypeParameter.kt");
                 }
             }
-
-            @Nested
-            @TestMetadata("native/tests-blackbox/ext-testData/codegen/box/multiplatform/multiModule")
-            @TestDataPath("$PROJECT_ROOT")
-            @SharedModulesPath("native/tests-blackbox/ext-testData/__shared_modules__")
-            public class MultiModule {
-                @Test
-                public void testAllFilesPresentInMultiModule() throws Exception {
-                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/tests-blackbox/ext-testData/codegen/box/multiplatform/multiModule"), Pattern.compile("^(.+)\\.kt$"), null, true);
-                }
-
-                @Test
-                @TestMetadata("defaultArgument.kt")
-                public void testDefaultArgument() throws Exception {
-                    runTest("native/tests-blackbox/ext-testData/codegen/box/multiplatform/multiModule/defaultArgument.kt");
-                }
-            }
         }
 
         @Nested

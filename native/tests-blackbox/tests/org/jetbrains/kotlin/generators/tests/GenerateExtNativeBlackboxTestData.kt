@@ -133,7 +133,7 @@ private class ExtTestDataFile(
         languageSettings = structure.directives.multiValues(LANGUAGE_DIRECTIVE) {
             it != "+NewInference" /* It is already on by default, but passing it explicitly turns on a special "compatibility mode" in FE which is not desirable. */
         },
-        experimentalSettings = structure.directives.multiValues(USE_EXPERIMENTAL_DIRECTIVE),
+        optIns = structure.directives.multiValues(OPT_IN_DIRECTIVE) + structure.directives.multiValues(USE_EXPERIMENTAL_DIRECTIVE),
         expectActualLinker = EXPECT_ACTUAL_LINKER_DIRECTIVE in structure.directives,
         effectivePackageName = computePackageName(testDataDir = testDataSourceDir, testDataFile = testDataFile)
     )
@@ -149,7 +149,7 @@ private class ExtTestDataFile(
     private fun assembleFreeCompilerArgs(): List<String> {
         val args = mutableListOf<String>()
         settings.languageSettings.mapTo(args) { "-XXLanguage:$it" }
-        settings.experimentalSettings.mapTo(args) { "-Xopt-in=$it" }
+        settings.optIns.mapTo(args) { "-Xopt-in=$it" } // TODO: emit each OptInt as a file-level annotations instead
         if (settings.expectActualLinker) args += "-Xexpect-actual-linker"
         return args
     }
@@ -478,6 +478,7 @@ private class ExtTestDataFile(
 
         private const val USE_EXPERIMENTAL_DIRECTIVE = "USE_EXPERIMENTAL"
         private const val EXPECT_ACTUAL_LINKER_DIRECTIVE = "EXPECT_ACTUAL_LINKER"
+        private const val OPT_IN_DIRECTIVE = "OPT_IN"
 
         private fun Directives.multiValues(key: String, predicate: (String) -> Boolean = { true }): Set<String> =
             listValues(key)?.flatMap { it.split(' ') }?.filter(predicate)?.toSet().orEmpty()
@@ -495,7 +496,7 @@ private class ExtTestDataFile(
 
 private class ExtTestDataFileSettings(
     val languageSettings: Set<String>,
-    val experimentalSettings: Set<String>,
+    val optIns: Set<String>,
     val expectActualLinker: Boolean,
     val effectivePackageName: PackageName
 )

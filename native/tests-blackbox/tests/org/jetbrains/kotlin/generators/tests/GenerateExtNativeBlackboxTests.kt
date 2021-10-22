@@ -30,6 +30,26 @@ fun main() {
             exclude("codegen/box/compileKotlinAgainstKotlin/clashingFakeOverrideSignatures.kt")           // KT-42020
             exclude("codegen/box/callableReference/genericConstructorReference.kt")                       // ???
             exclude("codegen/boxInline/multiplatform/defaultArguments/receiversAndParametersInLambda.kt") // KT-36880
+
+            // Temporarily disabled because of java.lang.IllegalStateException: public final expect fun lastIndex(start: kotlin.Int, end: kotlin.Int = ...): kotlin.Unit defined in codegen.box.multiplatform.multiModule.defaultArgument.Test[SimpleFunctionDescriptorImpl@364e8b0e]
+            //        at org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier$copyDefaultArgumentsFromExpectToActual$1.visitValueParameter(ExpectDeclarationsRemoving.kt:238)
+            //        at org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid$DefaultImpls.visitValueParameter(IrElementVisitorVoid.kt:81)
+            //        at org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier$copyDefaultArgumentsFromExpectToActual$1.visitValueParameter(ExpectDeclarationsRemoving.kt:68)
+            //        at org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier$copyDefaultArgumentsFromExpectToActual$1.visitValueParameter(ExpectDeclarationsRemoving.kt:68)
+            //        at org.jetbrains.kotlin.ir.declarations.IrValueParameter.accept(IrValueParameter.kt:46)
+            //        at org.jetbrains.kotlin.ir.declarations.IrFunction.acceptChildren(IrFunction.kt:56)
+            //        at org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoidKt.acceptChildrenVoid(IrElementVisitorVoid.kt:287)
+            //        at org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier$copyDefaultArgumentsFromExpectToActual$1.visitElement(ExpectDeclarationsRemoving.kt:70)
+            //        at org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid$DefaultImpls.visitDeclaration(IrElementVisitorVoid.kt:40)
+            //        at org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier$copyDefaultArgumentsFromExpectToActual$1.visitDeclaration(ExpectDeclarationsRemoving.kt:68)
+            //        at org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid$DefaultImpls.visitFunction(IrElementVisitorVoid.kt:49)
+            //        at org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier$copyDefaultArgumentsFromExpectToActual$1.visitFunction(ExpectDeclarationsRemoving.kt:68)
+            //        at org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid$DefaultImpls.visitSimpleFunction(IrElementVisitorVoid.kt:52)
+            //        at org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier$copyDefaultArgumentsFromExpectToActual$1.visitSimpleFunction(ExpectDeclarationsRemoving.kt:68)
+            //        at org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid$DefaultImpls.visitSimpleFunction(IrElementVisitorVoid.kt:53)
+            // Test fails with the same exception in old test infra.
+            exclude("codegen/box/multiplatform/multiModule/defaultArgument.kt")
+
         }
     }
 

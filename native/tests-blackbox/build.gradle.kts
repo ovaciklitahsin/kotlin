@@ -46,10 +46,18 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
 }
 
 projectTest(jUnit5Enabled = true) {
-//    dependsOn(":kotlin-native:dist", ":kotlin-native:distPlatformLibs")
+    dependsOn(":kotlin-native:dist" /*, ":kotlin-native:distPlatformLibs"*/)
     workingDir = rootDir
-    maxHeapSize = "6G"
-    jvmArgs("-XX:TieredStopAtLevel=1")
+
+    maxHeapSize = "6G" // Extra heap space for Kotlin/Native compiler.
+    jvmArgs("-XX:TieredStopAtLevel=1") // Disable C2 compiler.
+    jvmArgs("-XX:MaxJavaStackTraceDepth=1000000") // Effectively remove the limit for the amount of stack trace elements in Throwable.
+
+    // Double the stack size. This is needed to compile some marginal tests with extra-deep IR tree, which requires a lot of stack frames
+    // for visiting it. Example: codegen/box/strings/concatDynamicWithConstants.kt
+    // Such tests are successfully compiled in old test infra with the default 1 MB stack just by accident. New test infra requires ~55
+    // stack frames more than the old one because of another launcher, etc. and it turns out this is not enough.
+    jvmArgs("-Xss2m")
 
     systemProperty("kotlin.native.home", kotlinNativeHome.absolutePath)
     systemProperty("kotlin.internal.native.classpath", kotlinNativeCompilerClassPath.files.joinToString(";"))
