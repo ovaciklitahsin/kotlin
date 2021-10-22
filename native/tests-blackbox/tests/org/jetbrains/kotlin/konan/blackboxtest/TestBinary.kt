@@ -13,7 +13,7 @@ internal sealed interface TestRunParameter {
 
     class WithPackageName(val packageName: String) : TestRunParameter {
         override fun applyTo(programArgs: MutableList<String>) {
-            programArgs += "--ktest_filter=$packageName*"
+            programArgs += "--ktest_filter=$packageName.*"
         }
     }
 

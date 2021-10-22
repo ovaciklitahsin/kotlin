@@ -303,7 +303,7 @@ private fun runCompiler(args: Array<String>, expectedArtifactFile: File, lazyKot
             )
             messageCollector.flush()
         }
-        compilerOutput = outputStream.toString(Charsets.UTF_8.name()).trim()
+        compilerOutput = outputStream.toString(Charsets.UTF_8.name())
     }
 
     val formattedCompilerOutput = formatCompilerOutput(exitCode, compilerOutput)
@@ -315,22 +315,7 @@ private fun runCompiler(args: Array<String>, expectedArtifactFile: File, lazyKot
 
 private fun dumpCompilerArgs(args: Array<String>, expectedArtifactFile: File) {
     val outputFile = expectedArtifactFile.resolveSibling(expectedArtifactFile.name + ".args")
-    val text = buildString {
-        args.forEachIndexed { index, arg ->
-            if (index > 0) append(if (arg[0] == '-' || arg.substringAfterLast('.') == "kt") '\n' else ' ')
-            append(arg)
-        }
-    }
-    outputFile.writeText(text)
-}
-
-private fun formatCompilerOutput(exitCode: ExitCode, compilerOutput: String) = buildString {
-    appendLine("Exit code: $exitCode(${exitCode.code})")
-    appendLine()
-    appendLine("========== Begin compiler output ==========")
-    if (compilerOutput.isNotEmpty()) appendLine(compilerOutput)
-    appendLine("========== End compiler output ==========")
-
+    outputFile.writeText(formatProcessArguments(args.asList()))
 }
 
 private fun dumpCompilerOutput(formattedCompilerOutput: String, expectedArtifactFile: File) {

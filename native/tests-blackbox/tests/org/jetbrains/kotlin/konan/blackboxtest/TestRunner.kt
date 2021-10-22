@@ -108,21 +108,17 @@ private class TestOutput(
     }
 
     private fun details() = buildString {
-        appendLine("\n\nProgram arguments: $programArgs")
-        appendLine("Exit code: $exitCode")
-        appendLine("\n== BEGIN [STDOUT] ==")
-        if (stdOut.isNotEmpty()) appendLine(stdOut)
-        appendLine("== END [STDOUT] ==")
-        appendLine("\n== BEGIN [STDERR] ==")
-        if (stdErr.isNotEmpty()) appendLine(stdErr)
-        appendLine("== END [STDERR] ==")
+        append("\n\nProgram arguments: [\n")
+        append(formatProcessArguments(programArgs, indentation = "\t"))
+        append("\n]\n")
+        append(formatProcessOutput(exitCode, stdOut, stdErr))
     }
 
     companion object {
         private const val GTEST_RUN_LINE_PREFIX = "[ RUN      ]"
         private val GTEST_STATUS_LINE_REGEX = Regex("^\\[\\s+([A-Z]+)\\s+]\\s+(\\S+)\\s+.*")
         private const val GTEST_STATUS_OK = "OK"
-        private val GTEST_ANY_LINE_REGEX = Regex("^\\[[^\\[]+].*")
+        private val GTEST_ANY_LINE_REGEX = Regex("^\\[[\\sA-Z]+].*")
     }
 }
 

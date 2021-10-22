@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest
 
+import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.renderer.KeywordStringsGenerated.KEYWORDS
 import org.jetbrains.kotlin.storage.NotNullLazyValue
 import org.jetbrains.kotlin.storage.StorageManager
@@ -12,7 +13,6 @@ import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import org.jetbrains.kotlin.utils.DFS
 import java.io.File
-import java.nio.charset.Charset
 import java.nio.file.Path
 import java.util.*
 import kotlin.io.path.name
@@ -265,3 +265,34 @@ internal inline fun <T, R> Iterable<T>.flatMapToSet(transform: (T) -> Iterable<R
 }
 
 internal inline fun <T, R> Array<T>.flatMapToSet(transform: (T) -> Iterable<R>): Set<R> = asList().flatMapToSet(transform)
+
+internal fun formatProcessArguments(args: Iterable<String>, indentation: String = ""): String = buildString {
+    args.forEachIndexed { index, arg ->
+        when {
+            index == 0 -> append(indentation)
+            arg[0] == '-' || arg.substringAfterLast('.') == "kt" -> append('\n').append(indentation)
+            else -> append(' ')
+        }
+        append(arg)
+    }
+}
+
+internal fun formatCompilerOutput(exitCode: ExitCode, output: String): String = buildString {
+    appendLine("Exit code: $exitCode(${exitCode.code})")
+    appendLine()
+    appendLine("========== Begin compiler output ==========")
+    if (output.isNotEmpty()) appendLine(output)
+    appendLine("========== End compiler output ==========")
+}
+
+internal fun formatProcessOutput(exitCode: Int, stdOut: String, stdErr: String): String = buildString {
+    appendLine("Exit code: $exitCode")
+    appendLine()
+    appendLine("========== Begin stdout ==========")
+    if (stdOut.isNotEmpty()) appendLine(stdOut)
+    appendLine("========== End stdout ==========")
+    appendLine()
+    appendLine("========== Begin stderr ==========")
+    if (stdErr.isNotEmpty()) appendLine(stdErr)
+    appendLine("========== End stderr ==========")
+}
