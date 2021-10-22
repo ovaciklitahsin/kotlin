@@ -189,15 +189,13 @@ private fun FirCallableSymbol<*>.toSymbolForCall(declarationStorage: Fir2IrDecla
     when (this) {
         is FirFunctionSymbol<*> -> declarationStorage.getIrFunctionSymbol(this)
         is FirSimpleSyntheticPropertySymbol -> {
-            (fir as? FirSyntheticProperty)?.let { syntheticProperty ->
-                val delegateSymbol = if (preferGetter) {
-                    syntheticProperty.getter.delegate.symbol
-                } else {
-                    syntheticProperty.setter?.delegate?.symbol
-                        ?: throw AssertionError("Written synthetic property must have a setter")
-                }
-                delegateSymbol.unwrapCallRepresentative().toSymbolForCall(declarationStorage, preferGetter)
-            } ?: declarationStorage.getIrPropertySymbol(this)
+            val delegateSymbol = if (preferGetter) {
+                fir.getter.delegate.symbol
+            } else {
+                fir.setter?.delegate?.symbol
+                    ?: throw AssertionError("Written synthetic property must have a setter")
+            }
+            delegateSymbol.unwrapCallRepresentative().toSymbolForCall(declarationStorage, preferGetter)
         }
         is FirPropertySymbol -> declarationStorage.getIrPropertySymbol(this)
         is FirFieldSymbol -> declarationStorage.getIrFieldSymbol(this)

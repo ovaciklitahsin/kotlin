@@ -295,7 +295,7 @@ class FirClassSubstitutionScope(
 
     fun createSubstitutionOverrideSyntheticProperty(original: FirSyntheticPropertySymbol): FirSyntheticPropertySymbol {
         if (substitutor == ConeSubstitutor.Empty) return original
-        val member = original.fir as FirSyntheticProperty
+        val member = original.fir
         if (skipPrivateMembers && member.visibility == Visibilities.Private) return original
 
         member.symbol.ensureResolved(FirResolvePhase.STATUS)

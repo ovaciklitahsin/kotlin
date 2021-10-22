@@ -77,9 +77,7 @@ internal class FirIdeProvider(
         }
         if (symbol is FirSyntheticPropertySymbol) {
             val fir = symbol.fir
-            if (fir is FirSyntheticProperty) {
-                return getFirCallableContainerFile(fir.getter.delegate.symbol)
-            }
+            return getFirCallableContainerFile(fir.getter.delegate.symbol)
         }
         return cache.getContainerFirFile(symbol.fir)
     }

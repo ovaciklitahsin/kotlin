@@ -90,7 +90,7 @@ internal object FirReferenceResolveHelper {
             is FirResolvedNamedReference -> {
                 val fir = when (val symbol = resolvedSymbol) {
                     is FirSyntheticPropertySymbol -> {
-                        val syntheticProperty = symbol.fir as FirSyntheticProperty
+                        val syntheticProperty = symbol.fir
                         if (syntheticProperty.getter.delegate.symbol.callableId == symbol.getterId) {
                             syntheticProperty.getter.delegate
                         } else {

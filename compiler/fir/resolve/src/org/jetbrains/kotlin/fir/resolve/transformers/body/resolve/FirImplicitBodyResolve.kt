@@ -334,9 +334,7 @@ class ImplicitBodyResolveComputationSession {
     internal fun getStatus(symbol: FirCallableSymbol<*>): ImplicitBodyResolveComputationStatus {
         if (symbol is FirSyntheticPropertySymbol) {
             val fir = symbol.fir
-            if (fir is FirSyntheticProperty) {
-                return getStatus(fir.getter.delegate.symbol)
-            }
+            return getStatus(fir.getter.delegate.symbol)
         }
         return implicitBodyResolveStatusMap[symbol] ?: ImplicitBodyResolveComputationStatus.NotComputed
     }

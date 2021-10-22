@@ -31,9 +31,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
         }
         if (symbol is FirSyntheticPropertySymbol) {
             val fir = symbol.fir
-            if (fir is FirSyntheticProperty) {
-                return getFirCallableContainerFile(fir.getter.delegate.symbol)
-            }
+            return getFirCallableContainerFile(fir.getter.delegate.symbol)
         }
         return state.callableContainerMap[symbol]
     }

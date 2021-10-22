@@ -16,7 +16,7 @@ abstract class FirBasedSymbol<E : FirDeclaration> {
     private var _fir: E? = null
 
     @SymbolInternals
-    val fir: E
+    open val fir: E
         get() = _fir
             ?: error("Fir is not initialized for $this")
 
