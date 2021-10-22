@@ -60,11 +60,7 @@ private class TestOutput(
                         testStatuses.getOrPut(testStatus) { hashSetOf() } += testName
                         expectStatusLine = false
                     } else {
-                        assertFalse(GTEST_ANY_LINE_REGEX.matches(line)) {
-                            // If current line is not a status line then it could be only the line with the process' output
-                            // and not the line with the output produced by GTest.
-                            "Malformed test output.${details()}"
-                        }
+                        // If current line is not a status line then it could be only the line with the process' output.
                         cleanStdOut.appendLine(line)
                     }
                 }
@@ -118,7 +114,6 @@ private class TestOutput(
         private const val GTEST_RUN_LINE_PREFIX = "[ RUN      ]"
         private val GTEST_STATUS_LINE_REGEX = Regex("^\\[\\s+([A-Z]+)\\s+]\\s+(\\S+)\\s+.*")
         private const val GTEST_STATUS_OK = "OK"
-        private val GTEST_ANY_LINE_REGEX = Regex("^\\[[\\sA-Z]+].*")
     }
 }
 
