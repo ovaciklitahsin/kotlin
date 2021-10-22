@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.konan.blackboxtest
 
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
-import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import kotlin.properties.Delegates
 
@@ -14,23 +13,26 @@ internal fun NativeTest.runAndVerify() {
     val programArgs = mutableListOf<String>(executableFile.path)
     runParameters.forEach { it.applyTo(programArgs) }
 
+    val startTimeMillis = System.currentTimeMillis()
     val process = ProcessBuilder(programArgs).directory(executableFile.parentFile).start()
     runParameters.get<TestRunParameter.WithInputData> {
         process.outputStream.write(inputData.toByteArray())
         process.outputStream.flush()
     }
 
-    TestOutput(runParameters, programArgs, process).verify()
+    TestOutput(runParameters, programArgs, process, startTimeMillis).verify()
 }
 
 private class TestOutput(
     private val runParameters: List<TestRunParameter>,
     private val programArgs: List<String>,
-    private val process: Process
+    private val process: Process,
+    private val startTimeMillis: Long
 ) {
     private var exitCode: Int by Delegates.notNull()
     private lateinit var stdOut: String
     private lateinit var stdErr: String
+    private var finishTimeMillis by Delegates.notNull<Long>()
 
     fun verify() {
         waitUntilExecutionFinished()
@@ -99,6 +101,7 @@ private class TestOutput(
 
     private fun waitUntilExecutionFinished() {
         exitCode = process.waitFor()
+        finishTimeMillis = System.currentTimeMillis()
         stdOut = process.inputStream.bufferedReader().readText()
         stdErr = process.errorStream.bufferedReader().readText()
     }
@@ -107,7 +110,7 @@ private class TestOutput(
         append("\n\nProgram arguments: [\n")
         append(formatProcessArguments(programArgs, indentation = "\t"))
         append("\n]\n")
-        append(formatProcessOutput(exitCode, stdOut, stdErr))
+        append(formatProcessOutput(exitCode, stdOut, stdErr, finishTimeMillis - startTimeMillis))
     }
 
     companion object {

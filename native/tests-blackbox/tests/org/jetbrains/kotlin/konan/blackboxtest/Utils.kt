@@ -277,15 +277,17 @@ internal fun formatProcessArguments(args: Iterable<String>, indentation: String 
     }
 }
 
-internal fun formatCompilerOutput(exitCode: ExitCode, output: String): String = buildString {
+internal fun formatCompilerOutput(exitCode: ExitCode, compilerOutput: String, durationMillis: Long): String = buildString {
+    appendLine("Duration (seconds): ${durationMillis.asSeconds}")
     appendLine("Exit code: $exitCode(${exitCode.code})")
     appendLine()
     appendLine("========== Begin compiler output ==========")
-    if (output.isNotEmpty()) appendLine(output)
+    if (compilerOutput.isNotEmpty()) appendLine(compilerOutput.trimEnd())
     appendLine("========== End compiler output ==========")
 }
 
-internal fun formatProcessOutput(exitCode: Int, stdOut: String, stdErr: String): String = buildString {
+internal fun formatProcessOutput(exitCode: Int, stdOut: String, stdErr: String, durationMillis: Long): String = buildString {
+    appendLine("Duration (seconds): ${durationMillis.asSeconds}")
     appendLine("Exit code: $exitCode")
     appendLine()
     appendLine("========== Begin stdout ==========")
@@ -296,3 +298,6 @@ internal fun formatProcessOutput(exitCode: Int, stdOut: String, stdErr: String):
     if (stdErr.isNotEmpty()) appendLine(stdErr)
     appendLine("========== End stderr ==========")
 }
+
+private val Long.asSeconds: String
+    get() = String.format("%.2f", toDouble() / 1000)

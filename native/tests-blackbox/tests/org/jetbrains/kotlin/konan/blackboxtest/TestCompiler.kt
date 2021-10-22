@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.io.*
+import kotlin.system.measureTimeMillis
 
 internal class TestCompilationFactory(private val environment: TestEnvironment) {
     private val sharedModulesOutputDir = environment.testBinariesDir.resolve("__shared_modules__").apply { mkdirs() }
@@ -267,23 +268,28 @@ private inline fun buildArgs(builderAction: ArgsBuilder.() -> Unit): Array<Strin
 private fun runCompiler(args: Array<String>, expectedArtifactFile: File, lazyKotlinNativeClassLoader: Lazy<ClassLoader>) {
     dumpCompilerArgs(args, expectedArtifactFile)
 
-    val kotlinNativeClassLoader by lazyKotlinNativeClassLoader
+    val compilerXmlOutput: ByteArrayOutputStream
+    val exitCode: ExitCode
 
-    val servicesClass = Class.forName(Services::class.java.canonicalName, true, kotlinNativeClassLoader)
-    val emptyServices = servicesClass.getField("EMPTY").get(servicesClass)
+    val durationMillis = measureTimeMillis {
+        val kotlinNativeClassLoader by lazyKotlinNativeClassLoader
 
-    val compilerClass = Class.forName("org.jetbrains.kotlin.cli.bc.K2Native", true, kotlinNativeClassLoader)
-    val entryPoint = compilerClass.getMethod(
-        "execAndOutputXml",
-        PrintStream::class.java,
-        servicesClass,
-        Array<String>::class.java
-    )
+        val servicesClass = Class.forName(Services::class.java.canonicalName, true, kotlinNativeClassLoader)
+        val emptyServices = servicesClass.getField("EMPTY").get(servicesClass)
 
-    val compilerXmlOutput = ByteArrayOutputStream()
-    val exitCode = PrintStream(compilerXmlOutput).use { printStream ->
-        val result = entryPoint.invoke(compilerClass.getDeclaredConstructor().newInstance(), printStream, emptyServices, args)
-        ExitCode.valueOf(result.toString())
+        val compilerClass = Class.forName("org.jetbrains.kotlin.cli.bc.K2Native", true, kotlinNativeClassLoader)
+        val entryPoint = compilerClass.getMethod(
+            "execAndOutputXml",
+            PrintStream::class.java,
+            servicesClass,
+            Array<String>::class.java
+        )
+
+        compilerXmlOutput = ByteArrayOutputStream()
+        exitCode = PrintStream(compilerXmlOutput).use { printStream ->
+            val result = entryPoint.invoke(compilerClass.getDeclaredConstructor().newInstance(), printStream, emptyServices, args)
+            ExitCode.valueOf(result.toString())
+        }
     }
 
     val messageCollector: MessageCollector
@@ -306,7 +312,7 @@ private fun runCompiler(args: Array<String>, expectedArtifactFile: File, lazyKot
         compilerOutput = outputStream.toString(Charsets.UTF_8.name())
     }
 
-    val formattedCompilerOutput = formatCompilerOutput(exitCode, compilerOutput)
+    val formattedCompilerOutput = formatCompilerOutput(exitCode, compilerOutput, durationMillis)
     dumpCompilerOutput(formattedCompilerOutput, expectedArtifactFile)
 
     assertEquals(ExitCode.OK, exitCode) { "Compilation finished with non-zero exit code.\n\n$formattedCompilerOutput" }
