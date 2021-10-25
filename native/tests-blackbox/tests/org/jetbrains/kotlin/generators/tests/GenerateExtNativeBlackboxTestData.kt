@@ -497,8 +497,10 @@ private class ExtTestDataFile(
                 appendLine()
             }
 
-            append("package ").appendLine(settings.effectivePackageName)
-            appendLine()
+            if (!structure.isStandaloneTest) {
+                append("package ").appendLine(settings.effectivePackageName)
+                appendLine()
+            }
 
             append(
                 """
