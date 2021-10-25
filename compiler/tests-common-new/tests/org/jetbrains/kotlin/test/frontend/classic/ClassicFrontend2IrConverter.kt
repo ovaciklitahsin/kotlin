@@ -45,6 +45,9 @@ class ClassicFrontend2IrConverter(
             .ignoreErrors(CodegenTestDirectives.IGNORE_ERRORS in module.directives)
             .build()
 
-        return IrBackendInput(state, codegenFactory.convertToIr(CodegenFactory.IrConversionInput.fromGenerationState(state)))
+        return IrBackendInput.JvmIrBackendInput(
+            state,
+            codegenFactory.convertToIr(CodegenFactory.IrConversionInput.fromGenerationState(state))
+        )
     }
 }
