@@ -61,9 +61,15 @@ projectTest(jUnit5Enabled = true) {
 
     systemProperty("kotlin.native.home", kotlinNativeHome.absolutePath)
     systemProperty("kotlin.internal.native.classpath", kotlinNativeCompilerClassPath.files.joinToString(";"))
-    findProperty("kotlin.internal.native.test.mode")?.let { testModeName ->
-        systemProperty("kotlin.internal.native.test.mode", testModeName)
-    }
+
+    // Pass Gradle properties as JVM properties so test process can read them.
+    listOf(
+        "kotlin.internal.native.test.mode",
+        "kotlin.internal.native.test.grouping"
+    ).forEach { propertyName -> findProperty(propertyName)?.let { systemProperty(propertyName, it) } }
+
+    // Upper limit the number of JUnit threads.
+    systemProperty("junit.jupiter.execution.parallel.config.fixed.threshold", 8)
 
     useJUnitPlatform()
 }

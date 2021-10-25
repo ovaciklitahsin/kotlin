@@ -24,6 +24,7 @@ internal class GlobalTestEnvironment(
     val kotlinNativeHome: File = defaultKotlinNativeHome,
     val lazyKotlinNativeClassLoader: Lazy<ClassLoader> = defaultKotlinNativeClassLoader,
     val testMode: TestMode = defaultTestMode,
+    val testGrouping: TestGrouping = defaultTestGrouping,
     val baseBuildDir: File = projectBuildDir
 ) {
     companion object {
@@ -55,12 +56,27 @@ internal class GlobalTestEnvironment(
             }
         }
 
+        private val defaultTestGrouping: TestGrouping = run {
+            val testGroupingName = System.getProperty(KOTLIN_NATIVE_TEST_GROUPING) ?: return@run TestGrouping.COMPILER_ARGS_AND_DIRECTORIES
+
+            TestGrouping.values().firstOrNull { it.name == testGroupingName } ?: fail {
+                buildString {
+                    appendLine("Unknown test grouping $testGroupingName.")
+                    appendLine("One of the following test grouping types should be passed through $KOTLIN_NATIVE_TEST_GROUPING system property:")
+                    TestGrouping.values().forEach { testGrouping ->
+                        appendLine("- ${testGrouping.name}: ${testGrouping.description}")
+                    }
+                }
+            }
+        }
+
         private val projectBuildDir: File
             get() = System.getenv(PROJECT_BUILD_DIR)?.let(::File) ?: fail { "Non-specified $PROJECT_BUILD_DIR environment variable" }
 
         private const val KOTLIN_NATIVE_HOME = "kotlin.native.home"
         private const val KOTLIN_NATIVE_CLASSPATH = "kotlin.internal.native.classpath"
         private const val KOTLIN_NATIVE_TEST_MODE = "kotlin.internal.native.test.mode"
+        private const val KOTLIN_NATIVE_TEST_GROUPING = "kotlin.internal.native.test.grouping"
         private const val PROJECT_BUILD_DIR = "PROJECT_BUILD_DIR"
     }
 }
@@ -83,3 +99,17 @@ internal enum class TestMode(val description: String) {
                 " Then link the KLIBs into the single executable file."
     )
 }
+
+/**
+ * Specifies how exactly [TestKind.REGULAR] tests are grouped when [TestMode.WITH_MODULES] is turned on.
+ */
+internal enum class TestGrouping(val description: String) {
+    COMPILER_ARGS(
+        description = "Group regular test cases by compiler args"
+    ),
+    COMPILER_ARGS_AND_DIRECTORIES(
+        description = "Group regular test cases by compiler args and testData file directory." +
+                " So test cases that originate from testData files stored in the same directory will appear in the same group."
+    )
+}
+

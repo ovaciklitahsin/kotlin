@@ -10,12 +10,17 @@ import org.jetbrains.kotlin.test.TestMetadata
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.utils.addToStdlib.cast
-import org.junit.jupiter.api.extension.BeforeTestExecutionCallback
+import org.junit.jupiter.api.extension.BeforeAllCallback
+import org.junit.jupiter.api.extension.BeforeEachCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import java.io.File
 
-class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
-    override fun beforeTestExecution(extensionContext: ExtensionContext) = with(extensionContext) {
+class NativeBlackBoxTestSupport : BeforeEachCallback {
+    /**
+     * Note: [BeforeEachCallback.beforeEach] allows accessing test instances while [BeforeAllCallback.beforeAll] which may look
+     * more preferable here do not allow it because is called at the time when there test instances are not created yet.
+     */
+    override fun beforeEach(extensionContext: ExtensionContext) = with(extensionContext) {
         enclosingTestInstance.blackBoxTestProvider = getOrCreateBlackBoxTestProvider()
     }
 
@@ -25,7 +30,7 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
         /** Creates a single instance of [TestProvider] per test class. */
         private fun ExtensionContext.getOrCreateBlackBoxTestProvider(): TestProvider =
             root.getStore(NAMESPACE).getOrComputeIfAbsent(enclosingTestClass.sanitizedName) { sanitizedName ->
-                val globalEnvironment = GlobalTestEnvironment() // Create with the default settings.
+                val globalEnvironment = getOrCreateGlobalEnvironment()
 
                 val testRoots = computeTestRoots()
                 val sharedModulesDir = enclosingTestClass.getAnnotation(SharedModulesPath::class.java)?.sharedModulesDir
@@ -44,6 +49,12 @@ class NativeBlackBoxTestSupport : BeforeTestExecutionCallback {
                     }
 
                 createBlackBoxTestProvider(TestEnvironment(globalEnvironment, testRoots, sharedModulesDir, testSourcesDir, testBinariesDir))
+            }.cast()
+
+        private fun ExtensionContext.getOrCreateGlobalEnvironment(): GlobalTestEnvironment =
+            root.getStore(NAMESPACE).getOrComputeIfAbsent(GlobalTestEnvironment::class.java.sanitizedName) {
+                // Create with the default settings.
+                GlobalTestEnvironment()
             }.cast()
 
         private val ExtensionContext.enclosingTestInstance: AbstractNativeBlackBoxTest

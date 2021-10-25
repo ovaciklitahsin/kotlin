@@ -50,7 +50,15 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
 
     companion object {
         private fun computeCompilations(environment: TestEnvironment, testCases: Collection<TestCase>): Map<File, TestCompilation> {
-            val regularTestCaseByCompilerArgs = hashMapOf<TestCompilerArgs, MutableList<TestCase>>()
+            // How exactly regular test cases are grouped?
+            val regularTestCaseGroupingKey: (TestCase) -> Any = {
+                when (environment.globalEnvironment.testGrouping) {
+                    TestGrouping.COMPILER_ARGS -> it.freeCompilerArgs
+                    TestGrouping.COMPILER_ARGS_AND_DIRECTORIES -> it.freeCompilerArgs to it.testDataFile.parent
+                }
+            }
+
+            val groupedRegularTestCases = hashMapOf<Any, MutableList<TestCase>>()
             val compilationFactory = TestCompilationFactory(environment)
 
             val compilations = hashMapOf<File, TestCompilation>()
@@ -62,16 +70,16 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
                         compilations[testCase.testDataFile] = compilationFactory.testCasesToExecutable(listOf(testCase))
                     }
                     TestKind.REGULAR -> {
-                        // Group regular test cases by compiler args.
-                        regularTestCaseByCompilerArgs.getOrPut(testCase.freeCompilerArgs) { mutableListOf() } += testCase
+                        // Group regular test cases.
+                        groupedRegularTestCases.getOrPut(regularTestCaseGroupingKey(testCase)) { mutableListOf() } += testCase
                     }
                 }
             }
 
             // Now, create compilations per each group of regular test cases.
-            regularTestCaseByCompilerArgs.forEach { (_, testCases) ->
-                val compilation = compilationFactory.testCasesToExecutable(testCases)
-                testCases.forEach { testCase -> compilations[testCase.testDataFile] = compilation }
+            groupedRegularTestCases.forEach { (_, testCasesInGroup) ->
+                val compilation = compilationFactory.testCasesToExecutable(testCasesInGroup)
+                testCasesInGroup.forEach { testCase -> compilations[testCase.testDataFile] = compilation }
             }
 
             return compilations
