@@ -70,6 +70,7 @@ internal class TestRoots(
     val baseDir: File
 )
 
+// TODO: in fact, only WITH_MODULES mode is supported now
 internal enum class TestMode(val description: String) {
     ONE_STAGE(
         description = "Compile test files altogether without producing intermediate KLIBs."
