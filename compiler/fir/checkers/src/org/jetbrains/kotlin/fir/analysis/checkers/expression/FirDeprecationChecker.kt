@@ -70,13 +70,12 @@ object FirDeprecationChecker : FirBasicExpressionChecker() {
         symbol: FirBasedSymbol<*>,
         context: CheckerContext
     ): DeprecationInfo? {
-        val deprecationInfos = listOfNotNull(
-            symbol.getDeprecation(callSite),
-            symbol.safeAs<FirConstructorSymbol>()
-                ?.resolvedReturnTypeRef
-                ?.toRegularClassSymbol(context.session)
-                ?.getDeprecation(callSite)
-        )
-        return deprecationInfos.maxOrNull()
+        symbol.safeAs<FirConstructorSymbol>()
+            ?.resolvedReturnTypeRef
+            ?.toRegularClassSymbol(context.session)
+            ?.getDeprecation(callSite)
+            ?.let { return it }
+
+        return symbol.getDeprecation(callSite)
     }
 }
