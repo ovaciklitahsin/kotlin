@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.js.test.wasm.semantics.AbstractIrCodegenBoxWasmTest
 import org.jetbrains.kotlin.js.test.wasm.semantics.AbstractIrCodegenWasmJsInteropWasmTest
 import org.jetbrains.kotlin.js.test.wasm.semantics.AbstractJsTranslatorWasmTest
 import org.jetbrains.kotlin.js.testNew.*
+import org.jetbrains.kotlin.js.testNew.AbstractIrJsTypeScriptExportTest
 import org.jetbrains.kotlin.test.TargetBackend
 
 fun main(args: Array<String>) {
@@ -42,10 +43,6 @@ fun main(args: Array<String>) {
 
             testClass<AbstractIrBoxJsES6Test> {
                 model("box/", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.JS_IR_ES6)
-            }
-
-            testClass<AbstractIrJsTypeScriptExportTest> {
-                model("typescript-export/", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.JS_IR)
             }
 
             testClass<AbstractIrJsTypeScriptExportES6Test> {
@@ -127,6 +124,10 @@ fun main(args: Array<String>) {
 
             testClass<AbstractIrBoxJsTest> {
                 model("box/", pattern = "^([^_](.+))\\.kt$")
+            }
+
+            testClass<AbstractIrJsTypeScriptExportTest> {
+                model("typescript-export/", pattern = "^([^_](.+))\\.kt$")
             }
         }
 

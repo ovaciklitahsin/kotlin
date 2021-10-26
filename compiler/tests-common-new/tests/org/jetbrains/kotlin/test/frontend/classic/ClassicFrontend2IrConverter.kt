@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
+import org.jetbrains.kotlin.ir.backend.js.KotlinFileSerializedData
 import org.jetbrains.kotlin.ir.backend.js.generateIrForKlibSerialization
 import org.jetbrains.kotlin.ir.backend.js.sortDependencies
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
@@ -24,6 +25,7 @@ import org.jetbrains.kotlin.test.model.Frontend2BackendConverter
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
+import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 
 class ClassicFrontend2IrConverter(
     testServices: TestServices
@@ -71,17 +73,15 @@ class ClassicFrontend2IrConverter(
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
         val verifySignatures = JsEnvironmentConfigurationDirectives.SKIP_MANGLE_VERIFICATION !in module.directives
 
-        val dependencies = testServices.moduleDescriptorProvider.getModuleDescriptor(module).allDependencyModules
-        val allDependencies = dependencies.associateBy { testServices.jsLibraryProvider.getCompiledLibraryByDescriptor(it) }
-
+        val icData = mutableListOf<KotlinFileSerializedData>()
         val expectDescriptorToSymbol = mutableMapOf<DeclarationDescriptor, IrSymbol>()
         val moduleFragment = generateIrForKlibSerialization(
             project,
             psiFiles.values.toList(),
             configuration,
             analysisResult,
-            sortDependencies(allDependencies),
-            mutableListOf(),
+            sortDependencies(JsEnvironmentConfigurator.getAllRecursiveLibrariesFor(module, testServices)),
+            icData,
             expectDescriptorToSymbol,
             IrFactoryImpl,
             verifySignatures
@@ -93,6 +93,7 @@ class ClassicFrontend2IrConverter(
             moduleFragment,
             psiFiles.values.toList(),
             bindingContext = analysisResult.bindingContext,
+            icData,
             expectDescriptorToSymbol = expectDescriptorToSymbol,
         )
     }
