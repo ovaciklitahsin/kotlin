@@ -43,6 +43,7 @@ class KtTypeReference : KtModifierListOwnerStub<KotlinPlaceHolderStub<KtTypeRefe
 
     val typeElement: KtTypeElement?
         get() = KtStubbedPsiUtil.getStubOrPsiChild(this, KtStubElementTypes.TYPE_ELEMENT_TYPES, KtTypeElement.ARRAY_FACTORY)
+            ?: findChildByType<KtContextReceiverList>(KtStubElementTypes.CONTEXT_RECEIVER_LIST)
 
     override fun getAnnotations(): List<KtAnnotation> {
         return modifierList?.annotations.orEmpty()

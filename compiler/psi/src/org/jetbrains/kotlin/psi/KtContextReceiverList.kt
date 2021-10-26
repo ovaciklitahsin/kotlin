@@ -10,13 +10,15 @@ import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.psi.stubs.KotlinPlaceHolderStub
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 
-class KtContextReceiverList : KtElementImplStub<KotlinPlaceHolderStub<KtContextReceiverList>> {
+class KtContextReceiverList : KtElementImplStub<KotlinPlaceHolderStub<KtContextReceiverList>>, KtTypeElement {
     constructor(node: ASTNode) : super(node)
     constructor(stub: KotlinPlaceHolderStub<KtContextReceiverList>) : super(stub, KtStubElementTypes.CONTEXT_RECEIVER_LIST)
 
     override fun <R : Any?, D : Any?> accept(visitor: KtVisitor<R, D>, data: D): R {
         return visitor.visitContextReceiverList(this, data)
     }
+
+    override fun getTypeArgumentsAsTypes(): List<KtTypeReference> = emptyList()
 
     fun contextReceivers(): List<KtContextReceiver> = findChildrenByType(KtNodeTypes.CONTEXT_RECEIVER)
 
