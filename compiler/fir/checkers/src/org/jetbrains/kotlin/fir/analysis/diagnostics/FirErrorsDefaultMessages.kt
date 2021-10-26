@@ -6,6 +6,14 @@
 package org.jetbrains.kotlin.fir.analysis.diagnostics
 
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticFactoryToRendererMap
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.COLLECTION
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.EMPTY
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.FUNCTION_PARAMETERS
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.NOT_RENDERED
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.NULLABLE_STRING
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.TO_STRING
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.VISIBILITY
+import org.jetbrains.kotlin.diagnostics.rendering.BaseDiagnosticRendererFactory
 import org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers.CLASS_KIND
 import org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers.RENDER_POSITION_VARIANCE
 import org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers.STRING
@@ -466,6 +474,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNNECESSARY_LATEI
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNNECESSARY_NOT_NULL_ASSERTION
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNNECESSARY_SAFE_CALL
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNREACHABLE_CODE
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNRESOLVED_IMPORT
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNRESOLVED_LABEL
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNRESOLVED_REFERENCE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.UNRESOLVED_REFERENCE_WRONG_RECEIVER
@@ -515,14 +524,6 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.WRONG_MODIFIER_TA
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.WRONG_NUMBER_OF_TYPE_ARGUMENTS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.WRONG_SETTER_PARAMETER_TYPE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.WRONG_SETTER_RETURN_TYPE
-import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.COLLECTION
-import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.EMPTY
-import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.FUNCTION_PARAMETERS
-import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.NOT_RENDERED
-import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.NULLABLE_STRING
-import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.TO_STRING
-import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.VISIBILITY
-import org.jetbrains.kotlin.diagnostics.rendering.BaseDiagnosticRendererFactory
 
 @Suppress("unused")
 object FirErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
@@ -568,6 +569,7 @@ object FirErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
             NAME_OF_CONTAINING_DECLARATION_OR_FILE
         )
         map.put(UNRESOLVED_REFERENCE, "Unresolved reference: {0}", NULLABLE_STRING)
+        map.put(UNRESOLVED_IMPORT, "Unresolved reference: {0}", NULLABLE_STRING) // &
         map.put(UNRESOLVED_LABEL, "Unresolved label")
         map.put(DESERIALIZATION_ERROR, "Deserialization error")
         map.put(ERROR_FROM_JAVA_RESOLUTION, "Java resolution error")
