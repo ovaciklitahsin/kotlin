@@ -56,7 +56,7 @@ projectTest(jUnit5Enabled = true) {
     // Double the stack size. This is needed to compile some marginal tests with extra-deep IR tree, which requires a lot of stack frames
     // for visiting it. Example: codegen/box/strings/concatDynamicWithConstants.kt
     // Such tests are successfully compiled in old test infra with the default 1 MB stack just by accident. New test infra requires ~55
-    // stack frames more than the old one because of another launcher, etc. and it turns out this is not enough.
+    // additional stack frames more compared to the old one because of another launcher, etc. and it turns out this is not enough.
     jvmArgs("-Xss2m")
 
     systemProperty("kotlin.native.home", kotlinNativeHome.absolutePath)
@@ -67,9 +67,6 @@ projectTest(jUnit5Enabled = true) {
         "kotlin.internal.native.test.mode",
         "kotlin.internal.native.test.grouping"
     ).forEach { propertyName -> findProperty(propertyName)?.let { systemProperty(propertyName, it) } }
-
-    // Upper limit the number of JUnit threads.
-    systemProperty("junit.jupiter.execution.parallel.config.fixed.threshold", 8)
 
     useJUnitPlatform()
 }
