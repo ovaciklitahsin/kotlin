@@ -1166,7 +1166,8 @@ class Fir2IrDeclarationStorage(
                     dispatchReceiverIrClass.declarations.find {
                         it is IrSimpleFunction && it.isFakeOverride && it.name == fir.name &&
                                 it.overrides(originalSymbol.owner as IrSimpleFunction)
-                    }!!.symbol as IrFunctionSymbol
+                    }?.symbol as? IrFunctionSymbol
+                        ?: originalSymbol // Fallback (normally we should not be here, but f/o are bound too late for local classes)
                 } else {
                     originalSymbol
                 }
@@ -1221,7 +1222,8 @@ class Fir2IrDeclarationStorage(
                 classifierStorage.getIrClassSymbol(dispatchReceiverLookupTag.toSymbol(session) as FirClassSymbol).owner
             dispatchReceiverIrClass.declarations.find {
                 it is IrProperty && it.isFakeOverride && it.name == fir.name && it.overrides(originalSymbol.owner as IrProperty)
-            }!!.symbol as IrPropertySymbol
+            }?.symbol as? IrPropertySymbol
+                ?: originalSymbol // Fallback (normally we should not be here, but f/o are bound too late for local classes)
         } else {
             originalSymbol
         }
