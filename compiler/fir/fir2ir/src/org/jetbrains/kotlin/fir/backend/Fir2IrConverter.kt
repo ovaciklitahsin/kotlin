@@ -138,7 +138,9 @@ class Fir2IrConverter(
         val classes = mutableListOf<FirRegularClass>()
         for (declaration in syntheticPropertiesLast(anonymousObject.declarations)) {
             val irDeclaration = if (declaration is FirRegularClass) {
-                classes += declaration
+                if (classifierStorage.getCachedIrClass(declaration) == null) {
+                    classes += declaration
+                }
                 registerClassAndNestedClasses(declaration, irClass)
             } else {
                 when (declaration) {
@@ -162,7 +164,7 @@ class Fir2IrConverter(
         return irClass
     }
 
-    private fun processClassMembers(
+    internal fun processClassMembers(
         regularClass: FirRegularClass,
         irClass: IrClass = classifierStorage.getCachedIrClass(regularClass)!!
     ): IrClass {
@@ -349,7 +351,8 @@ class Fir2IrConverter(
             val symbolTable = SymbolTable(signaturer, irFactory)
             val signatureComposer = FirBasedSignatureComposer(mangler)
             val components = Fir2IrComponentsStorage(session, scopeSession, symbolTable, irFactory, signatureComposer)
-            val classifierStorage = Fir2IrClassifierStorage(components)
+            val converter = Fir2IrConverter(moduleDescriptor, components)
+            val classifierStorage = Fir2IrClassifierStorage(converter, components)
             components.classifierStorage = classifierStorage
             components.delegatedMemberGenerator = DelegatedMemberGenerator(components)
             val declarationStorage = Fir2IrDeclarationStorage(components, moduleDescriptor)
@@ -363,7 +366,6 @@ class Fir2IrConverter(
                     languageVersionSettings.getFlag(AnalysisFlags.builtInsFromSources)
                 )
             components.irBuiltIns = irBuiltIns
-            val converter = Fir2IrConverter(moduleDescriptor, components)
             val conversionScope = Fir2IrConversionScope()
             val fir2irVisitor = Fir2IrVisitor(converter, components, conversionScope)
             val builtIns = Fir2IrBuiltIns(components, specialSymbolProvider)

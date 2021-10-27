@@ -1738,6 +1738,11 @@ public class KlibTextTestCaseGenerated extends AbstractKlibTextTestCase {
             runTest("compiler/testData/ir/irText/firProblems/FirBuilder.kt");
         }
 
+        @TestMetadata("FlushFromAnonymous.kt")
+        public void testFlushFromAnonymous() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/FlushFromAnonymous.kt");
+        }
+
         @TestMetadata("ImplicitReceiverStack.kt")
         public void testImplicitReceiverStack() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/ImplicitReceiverStack.kt");

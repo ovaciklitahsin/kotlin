@@ -150,7 +150,7 @@ class Fir2IrVisitor(
             // NB: for implicit types it is possible that local class is already cached
             val irClass = classifierStorage.getCachedIrClass(regularClass)?.apply { this.parent = irParent }
             if (irClass != null) {
-                converter.processRegisteredLocalClassAndNestedClasses(regularClass, irClass)
+                //converter.processRegisteredLocalClassAndNestedClasses(regularClass, irClass)
                 return conversionScope.withParent(irClass) {
                     memberGenerator.convertClassContent(irClass, regularClass)
                 }
@@ -176,9 +176,10 @@ class Fir2IrVisitor(
         val irParent = conversionScope.parentFromStack()
         // NB: for implicit types it is possible that anonymous object is already cached
         val irAnonymousObject = classifierStorage.getCachedIrClass(anonymousObject)?.apply { this.parent = irParent }
-            ?: classifierStorage.createIrAnonymousObject(anonymousObject, irParent = irParent)
-        converter.processAnonymousObjectMembers(anonymousObject, irAnonymousObject)
-        converter.bindFakeOverridesInClass(irAnonymousObject)
+            ?: classifierStorage.createIrAnonymousObject(anonymousObject, irParent = irParent).apply {
+                converter.processAnonymousObjectMembers(anonymousObject, this)
+                converter.bindFakeOverridesInClass(this)
+            }
         conversionScope.withParent(irAnonymousObject) {
             conversionScope.withContainingFirClass(anonymousObject) {
                 memberGenerator.convertClassContent(irAnonymousObject, anonymousObject)
