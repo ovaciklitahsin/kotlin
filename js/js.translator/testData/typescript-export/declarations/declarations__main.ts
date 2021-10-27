@@ -27,6 +27,8 @@ import TestSealed = JS_TESTS.foo.TestSealed;
 import TestAbstract = JS_TESTS.foo.TestAbstract;
 import TestDataClass = JS_TESTS.foo.TestDataClass;
 import TestEnumClass = JS_TESTS.foo.TestEnumClass;
+import TestInterfaceImpl = JS_TESTS.foo.TestInterfaceImpl;
+import processInterface = JS_TESTS.foo.processInterface;
 
 function assert(condition: boolean) {
     if (!condition) {
@@ -132,6 +134,11 @@ function box(): string {
     assert(TestEnumClass.B.ordinal === 1)
 
     assert(new TestEnumClass.Nested().prop == "hello2")
+
+    const test1: JS_TESTS.foo.TestInterface = { value: "bar", getOwnerName: () => "RandomObject" }
+    const test2 = new TestInterfaceImpl("bar")
+    assert(processInterface(test1) == "Owner RandomObject has value 'bar'")
+    assert(processInterface(test2) == "Owner TestInterfaceImpl has value 'bar'")
 
     return "OK";
 }

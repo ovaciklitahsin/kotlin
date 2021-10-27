@@ -180,3 +180,17 @@ enum class TestEnumClass(val constructorParameter: String) {
         val prop: String = "hello2"
     }
 }
+interface TestInterface {
+    val value: String
+    fun getOwnerName(): String
+}
+
+@JsExport
+class TestInterfaceImpl(override val value: String) : TestInterface {
+    override fun getOwnerName() = "TestInterfaceImpl"
+}
+
+@JsExport
+fun processInterface(test: TestInterface): String {
+    return "Owner ${test.getOwnerName()} has value '${test.value}'"
+}
