@@ -165,17 +165,54 @@ private class ExtTestDataFile(
     fun generateNewTestDataFileIfNecessary(sharedTestModules: SharedTestModules) {
         if (!shouldBeGenerated()) return
 
+        val isStandaloneTest = determineIfStandaloneTest()
         makeObjectsMutable()
-        patchPackageNames()
+        patchPackageNames(isStandaloneTest)
         val fileLevelAnnotations = patchFileLevelAnnotations()
         val entryPointFunctionFQN = findEntryPoint()
-        generateTestLauncher(entryPointFunctionFQN, fileLevelAnnotations)
+        generateTestLauncher(isStandaloneTest, entryPointFunctionFQN, fileLevelAnnotations)
 
         val relativeFile = testDataFile.relativeTo(testDataSourceDir)
         val destinationFile = testDataDestinationDir.resolve(relativeFile)
 
-        destinationFile.writeFileWithLogging(structure.generateTextExcludingSupportModule(assembleFreeCompilerArgs()))
+        destinationFile.writeFileWithLogging(structure.generateTextExcludingSupportModule(isStandaloneTest, assembleFreeCompilerArgs()))
         structure.generateSharedSupportModule(sharedTestModules::addFile)
+    }
+
+    /** Determine if the current test should be compiled as a standalone test, i.e.
+     * - package names are not patched
+     * - test is compiled independently of any other tests
+     */
+    private fun determineIfStandaloneTest(): Boolean = with(structure) {
+        var isStandaloneTest = false
+
+        filesToTransform.forEach { handler ->
+            handler.accept(object : KtTreeVisitorVoid() {
+                override fun visitKtFile(file: KtFile) = when {
+                    isStandaloneTest -> Unit
+                    file.packageFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME) -> {
+                        // We can't fully patch packages for tests containing source code in any of kotlin.* packages.
+                        // So, such tests should be run in standalone mode to avoid possible signature clashes with other tests.
+                        isStandaloneTest = true
+                    }
+                    else -> super.visitKtFile(file)
+                }
+
+                override fun visitCallExpression(expression: KtCallExpression) = when {
+                    isStandaloneTest -> Unit
+                    expression.getChildOfType<KtNameReferenceExpression>()?.getReferencedNameAsName() == TYPE_OF_NAME -> {
+                        // Found a call of `typeOf()` function. It means that this is most likely a reflection-oriented test
+                        // that might compare the obtained name of a type against some string literal (ex: "foo.Bar<A>"),
+                        // which is obviously not patched during package names patching step because this step is not so smart.
+                        // So, let's avoid patching package names for this test and let's run it in standalone mode.
+                        isStandaloneTest = true
+                    }
+                    else -> super.visitCallExpression(expression)
+                }
+            })
+        }
+
+        isStandaloneTest
     }
 
     /** Annotate all objects and companion objects with [THREAD_LOCAL_ANNOTATION] to make them mutable. */
@@ -219,7 +256,7 @@ private class ExtTestDataFile(
      * Examples: package kotlin.coroutines -> package kotlin.coroutines
      *           import kotlin.test.* -> import kotlin.test.*
      */
-    private fun patchPackageNames() = with(structure) {
+    private fun patchPackageNames(isStandaloneTest: Boolean) = with(structure) {
         if (isStandaloneTest) return // Don't patch packages for standalone tests.
 
         val basePackageName = FqName(settings.effectivePackageName)
@@ -490,14 +527,14 @@ private class ExtTestDataFile(
     }
 
     /** Adds a wrapper to run it as Kotlin test. */
-    private fun generateTestLauncher(entryPointFunctionFQN: String, fileLevelAnnotations: List<String>) {
+    private fun generateTestLauncher(isStandaloneTest: Boolean, entryPointFunctionFQN: String, fileLevelAnnotations: List<String>) {
         val fileText = buildString {
             if (fileLevelAnnotations.isNotEmpty()) {
                 fileLevelAnnotations.forEach(this::appendLine)
                 appendLine()
             }
 
-            if (!structure.isStandaloneTest) {
+            if (!isStandaloneTest) {
                 append("package ").appendLine(settings.effectivePackageName)
                 appendLine()
             }
@@ -557,6 +594,7 @@ private class ExtTestDataFile(
         private val BOX_FUNCTION_NAME = Name.identifier("box")
         private val OPT_IN_ANNOTATION_NAME = Name.identifier("OptIn")
         private val HELPERS_PACKAGE_NAME = Name.identifier("helpers")
+        private val TYPE_OF_NAME = Name.identifier("typeOf")
     }
 }
 
@@ -583,11 +621,6 @@ private class ExtTestDataFileStructureFactory : Disposable {
 
         val directives: Directives get() = filesAndModules.directives
 
-        // We can't fully patch packages for tests containing source code in any of kotlin.* packages.
-        // So, such tests should be run in standalone mode to avoid possible signature clashes with other tests.
-        val isStandaloneTest: Boolean
-            get() = filesAndModules.parsedFiles.values.any { it.packageFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME) }
-
         val filesToTransform: Iterable<CurrentFileHandler>
             get() = filesAndModules.parsedFiles.map { (file, psiFile) ->
                 object : CurrentFileHandler {
@@ -608,7 +641,7 @@ private class ExtTestDataFileStructureFactory : Disposable {
 
         fun addFileToMainModule(fileName: String, text: String): Unit = filesAndModules.addFileToMainModule(fileName, text)
 
-        fun generateTextExcludingSupportModule(freeCompilerArgs: Collection<String>): String {
+        fun generateTextExcludingSupportModule(isStandaloneTest: Boolean, freeCompilerArgs: Collection<String>): String {
             checkModulesConsistency()
 
             // Update texts of parsed test files.
