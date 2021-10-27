@@ -129,6 +129,12 @@ public class FirSpecificBlackBoxCodegenTestGenerated extends AbstractFirBlackBox
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/fir2ir/testData/codegen/boxWithStdLib"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
         }
 
+        @Test
+        @TestMetadata("myHashSet.kt")
+        public void testMyHashSet() throws Exception {
+            runTest("compiler/fir/fir2ir/testData/codegen/boxWithStdLib/myHashSet.kt");
+        }
+
         @Nested
         @TestMetadata("compiler/fir/fir2ir/testData/codegen/boxWithStdLib/properties")
         @TestDataPath("$PROJECT_ROOT")
