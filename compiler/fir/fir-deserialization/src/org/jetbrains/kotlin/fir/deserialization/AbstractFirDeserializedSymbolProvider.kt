@@ -120,7 +120,7 @@ abstract class AbstractFirDeserializedSymbolProvider(
         return getPackageParts(classId.packageFqName).firstNotNullOfOrNull { part ->
             val ids = part.typeAliasNameIndex[classId.shortClassName]
             if (ids == null || ids.isEmpty()) return@firstNotNullOfOrNull null
-            val aliasProto = ids.map { part.proto.getTypeAlias(it) }.single()
+            val aliasProto = ids.single().let { part.proto.getTypeAlias(it) }
             part.context.memberDeserializer.loadTypeAlias(aliasProto).symbol
         }
     }
