@@ -50,7 +50,6 @@ projectTest(jUnit5Enabled = true) {
     workingDir = rootDir
 
     maxHeapSize = "6G" // Extra heap space for Kotlin/Native compiler.
-    jvmArgs("-XX:TieredStopAtLevel=1") // Disable C2 compiler.
     jvmArgs("-XX:MaxJavaStackTraceDepth=1000000") // Effectively remove the limit for the amount of stack trace elements in Throwable.
 
     // Double the stack size. This is needed to compile some marginal tests with extra-deep IR tree, which requires a lot of stack frames
