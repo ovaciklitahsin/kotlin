@@ -46,8 +46,6 @@ abstract class CommonRecompileModuleJsBackendFacade<R : ResultingArtifact.Fronte
             useAdditionalServices(*builder.additionalServices.toTypedArray())
             builder.globalDefaultsConfigurators.forEach { globalDefaults(it) }
             builder.defaultDirectiveConfigurators.forEach { defaultDirectives(it) }
-            builder.configurationsByPositiveTestDataCondition.forEach { (regex, init) -> forTestsMatching(regex, init) }
-            builder.configurationsByNegativeTestDataCondition.forEach { (regex, init) -> forTestsNotMatching(regex, init) }
 
             configure(module)
         }
