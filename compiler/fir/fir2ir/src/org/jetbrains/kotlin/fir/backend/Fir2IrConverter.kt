@@ -18,7 +18,6 @@ import org.jetbrains.kotlin.fir.backend.generators.DataClassMembersGenerator
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.isSynthetic
-import org.jetbrains.kotlin.fir.declarations.primaryConstructorIfAny
 import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.extensions.declarationGenerators
 import org.jetbrains.kotlin.fir.extensions.extensionService
@@ -71,7 +70,8 @@ class Fir2IrConverter(
 
     fun registerFileAndClasses(file: FirFile, moduleFragment: IrModuleFragment) {
         val fileEntry = when (file.origin) {
-            FirDeclarationOrigin.Source -> PsiIrFileEntry(file.psi as KtFile)
+            FirDeclarationOrigin.Source ->
+                file.psi?.let { PsiIrFileEntry(it as KtFile) } ?: NaiveSourceBasedFileEntryImpl(file.path ?: file.name)
             FirDeclarationOrigin.Synthetic -> object : IrFileEntry {
                 override val name = file.name
                 override val maxOffset = UNDEFINED_OFFSET
