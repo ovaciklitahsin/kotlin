@@ -65,6 +65,10 @@ abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendO
             }
         }
 
+        forTestsNotMatching("compiler/testData/codegen/boxError/*") {
+            enableMetaInfoHandler()
+        }
+
         useConfigurators(
             ::CommonEnvironmentConfigurator,
             ::JsEnvironmentConfigurator,
@@ -102,7 +106,5 @@ abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendO
                 ::JsArtifactsDumpHandler,
             )
         }
-
-        enableMetaInfoHandler()
     }
 }
