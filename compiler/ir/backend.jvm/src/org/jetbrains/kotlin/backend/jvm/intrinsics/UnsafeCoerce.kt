@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.jvm.intrinsics
 import org.jetbrains.kotlin.backend.jvm.codegen.*
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.org.objectweb.asm.Type
 
 /**
@@ -24,7 +25,9 @@ object UnsafeCoerce : IntrinsicMethod() {
         val fromType = codegen.typeMapper.mapType(from)
         val toType = codegen.typeMapper.mapType(to)
         require(fromType == toType) {
-            "Inline class types should have the same representation: $fromType != $toType"
+            "Inline class types should have the same representation: $fromType != $toType\n" +
+                    "from: ${from.render()}\n" +
+                    "to: ${to.render()}"
         }
         val arg = expression.getValueArgument(0)!!
         val result = arg.accept(codegen, data)
