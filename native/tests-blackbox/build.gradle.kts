@@ -64,7 +64,8 @@ projectTest(jUnit5Enabled = true) {
     // Pass Gradle properties as JVM properties so test process can read them.
     listOf(
         "kotlin.internal.native.test.mode",
-        "kotlin.internal.native.test.grouping"
+        "kotlin.internal.native.test.grouping",
+        "kotlin.internal.native.test.useCache"
     ).forEach { propertyName -> findProperty(propertyName)?.let { systemProperty(propertyName, it) } }
 
     useJUnitPlatform()

@@ -48,6 +48,9 @@ internal class TestCompilationFactory(private val environment: TestEnvironment) 
                 specificCompilerArgs = {
                     add("-produce", "program")
                     if (entryPoint != null) add("-entry", entryPoint) else add("-generate-test-runner")
+                    environment.globalEnvironment.getRootCacheDirectory(debuggable = true)?.let { rootCacheDir ->
+                        add("-Xcache-directory=$rootCacheDir")
+                    }
                 }
             )
         }

@@ -25,8 +25,12 @@ internal class GlobalTestEnvironment(
     val lazyKotlinNativeClassLoader: Lazy<ClassLoader> = defaultKotlinNativeClassLoader,
     val testMode: TestMode = defaultTestMode,
     val testGrouping: TestGrouping = defaultTestGrouping,
+    val cacheSettings: TestCacheSettings = defaultCacheSettings,
     val baseBuildDir: File = projectBuildDir
 ) {
+    fun getRootCacheDirectory(debuggable: Boolean): File? =
+        (cacheSettings as? TestCacheSettings.WithCache)?.getRootCacheDirectory(this, debuggable)
+
     companion object {
         private val defaultKotlinNativeHome: File
             get() = System.getProperty(KOTLIN_NATIVE_HOME)?.let(::File) ?: fail { "Non-specified $KOTLIN_NATIVE_HOME system property" }
@@ -70,6 +74,17 @@ internal class GlobalTestEnvironment(
             }
         }
 
+        private val defaultCacheSettings: TestCacheSettings = run {
+            val useCacheValue = System.getProperty(KOTLIN_NATIVE_TEST_USE_CACHE)
+            val useCache = if (useCacheValue != null) {
+                useCacheValue.toBooleanStrictOrNull()
+                    ?: fail { "Invalid value for $KOTLIN_NATIVE_TEST_USE_CACHE system property: $useCacheValue" }
+            } else
+                true
+
+            if (useCache) TestCacheSettings.WithCache else TestCacheSettings.WithoutCache
+        }
+
         private val projectBuildDir: File
             get() = System.getenv(PROJECT_BUILD_DIR)?.let(::File) ?: fail { "Non-specified $PROJECT_BUILD_DIR environment variable" }
 
@@ -77,6 +92,7 @@ internal class GlobalTestEnvironment(
         private const val KOTLIN_NATIVE_CLASSPATH = "kotlin.internal.native.classpath"
         private const val KOTLIN_NATIVE_TEST_MODE = "kotlin.internal.native.test.mode"
         private const val KOTLIN_NATIVE_TEST_GROUPING = "kotlin.internal.native.test.grouping"
+        private const val KOTLIN_NATIVE_TEST_USE_CACHE = "kotlin.internal.native.test.useCache"
         private const val PROJECT_BUILD_DIR = "PROJECT_BUILD_DIR"
     }
 }
@@ -113,3 +129,16 @@ internal enum class TestGrouping(val description: String) {
     )
 }
 
+
+internal sealed interface TestCacheSettings {
+    object WithoutCache : TestCacheSettings
+    object WithCache : TestCacheSettings {
+        fun getRootCacheDirectory(globalEnvironment: GlobalTestEnvironment, debuggable: Boolean): File = with(globalEnvironment) {
+            kotlinNativeHome.resolve("klib/cache").resolve(getCacheDirName(target, debuggable))
+        }
+
+        private const val DEFAULT_CACHE_KIND = "STATIC"
+
+        private fun getCacheDirName(target: KonanTarget, debuggable: Boolean) = "$target${if (debuggable) "-g" else ""}$DEFAULT_CACHE_KIND"
+    }
+}
