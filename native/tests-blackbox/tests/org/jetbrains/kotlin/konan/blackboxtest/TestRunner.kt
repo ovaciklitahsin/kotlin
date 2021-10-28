@@ -20,14 +20,15 @@ internal fun NativeTest.runAndVerify() {
         process.outputStream.flush()
     }
 
-    TestOutput(runParameters, programArgs, process, startTimeMillis).verify()
+    TestOutput(runParameters, programArgs, process, startTimeMillis, origin).verify()
 }
 
 private class TestOutput(
     private val runParameters: List<TestRunParameter>,
     private val programArgs: List<String>,
     private val process: Process,
-    private val startTimeMillis: Long
+    private val startTimeMillis: Long,
+    private val origin: TestOrigin.SingleTestDataFile
 ) {
     private var exitCode: Int by Delegates.notNull()
     private lateinit var stdOut: String
@@ -110,7 +111,7 @@ private class TestOutput(
         append("\n\nProgram arguments: [\n")
         append(formatProcessArguments(programArgs, indentation = "\t"))
         append("\n]\n")
-        append(formatProcessOutput(exitCode, stdOut, stdErr, finishTimeMillis - startTimeMillis))
+        append(formatProcessOutput(exitCode, stdOut, stdErr, finishTimeMillis - startTimeMillis, origin))
     }
 
     companion object {

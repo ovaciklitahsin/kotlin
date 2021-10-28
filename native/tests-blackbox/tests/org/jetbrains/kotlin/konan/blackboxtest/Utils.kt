@@ -277,18 +277,33 @@ internal fun formatProcessArguments(args: Iterable<String>, indentation: String 
     }
 }
 
-internal fun formatCompilerOutput(exitCode: ExitCode, compilerOutput: String, durationMillis: Long): String = buildString {
+internal fun formatCompilerOutput(
+    exitCode: ExitCode,
+    compilerOutput: String,
+    durationMillis: Long,
+    compilerArgsFile: File,
+    origin: TestOrigin.ManyTestDataFiles
+): String = buildString {
     appendLine("Duration (seconds): ${durationMillis.asSeconds}")
     appendLine("Exit code: $exitCode(${exitCode.code})")
+    appendLine("Compiler arguments dump: $compilerArgsFile")
+    appendLine("Test data files: [").appendLine(origin.format("\t")).appendLine("]")
     appendLine()
     appendLine("========== Begin compiler output ==========")
     if (compilerOutput.isNotEmpty()) appendLine(compilerOutput.trimEnd())
     appendLine("========== End compiler output ==========")
 }
 
-internal fun formatProcessOutput(exitCode: Int, stdOut: String, stdErr: String, durationMillis: Long): String = buildString {
+internal fun formatProcessOutput(
+    exitCode: Int,
+    stdOut: String,
+    stdErr: String,
+    durationMillis: Long,
+    origin: TestOrigin.SingleTestDataFile
+): String = buildString {
     appendLine("Duration (seconds): ${durationMillis.asSeconds}")
     appendLine("Exit code: $exitCode")
+    appendLine("Test data file: ${origin.file}")
     appendLine()
     appendLine("========== Begin stdout ==========")
     if (stdOut.isNotEmpty()) appendLine(stdOut)

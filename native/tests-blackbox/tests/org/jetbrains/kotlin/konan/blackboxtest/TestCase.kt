@@ -16,6 +16,22 @@ import java.io.File
 internal typealias PackageName = String
 
 /**
+ * Helps to track the origin of the [TestCompilation] or [NativeTest]. Used for reporting purposes.
+ */
+internal interface TestOrigin {
+    class SingleTestDataFile(val file: File) : TestOrigin {
+        override fun toString(): String = file.path
+    }
+
+    class ManyTestDataFiles(private val files: Set<File>) : TestOrigin {
+        fun format(indentation: String = ""): String =
+            files.map { it.path }.sorted().joinToString("\n") { path -> "$indentation$path" }
+
+        override fun toString() = format()
+    }
+}
+
+/**
  * Represents a single file that will be supplied to the compiler.
  */
 internal class TestFile<M : TestModule> private constructor(
@@ -133,15 +149,15 @@ internal sealed class TestModule {
  * [modules] - the collection of [TestModule.Exclusive] modules with [TestFile]s that need to be compiled to run this test.
  *             Note: There can also be [TestModule.Shared] modules as dependencies of either of [TestModule.Exclusive] modules.
  *             See [TestModule.Exclusive.allDependencies] for details.
- * [testDataFile] - the origin of the test case.
- * [nominalPackageName] - the unique package name that was computed for this [TestCase] based on [testDataFile]'s actual path.
+ * [origin] - the origin of the test case.
+ * [nominalPackageName] - the unique package name that was computed for this [TestCase] based on [origin]'s actual path.
  *                        Note: It depends on the concrete [TestKind] whether the package name will be enforced for the [TestFile]s or not.
  */
 internal class TestCase(
     val kind: TestKind,
     val modules: Set<TestModule.Exclusive>,
     val freeCompilerArgs: TestCompilerArgs,
-    val testDataFile: File,
+    val origin: TestOrigin.SingleTestDataFile,
     val nominalPackageName: PackageName,
     val outputData: String?,
     val extras: StandaloneNoTestRunnerExtras? = null
@@ -176,19 +192,19 @@ internal class TestCase(
     fun initialize(findSharedModule: (name: String) -> TestModule.Shared?) {
         // Check that there are no duplicated files among different modules.
         val duplicatedFiles = modules.flatMap { it.files }.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-        assertTrue(duplicatedFiles.isEmpty()) { "$testDataFile: Duplicated test files encountered: $duplicatedFiles" }
+        assertTrue(duplicatedFiles.isEmpty()) { "$origin: Duplicated test files encountered: $duplicatedFiles" }
 
         // Check that there are modules with duplicated names.
         val exclusiveModules: Map</* regular module name */ String, TestModule.Exclusive> = modules.toIdentitySet()
             .groupingBy { module -> module.name }
             .aggregate { name, _: TestModule.Exclusive?, module, isFirst ->
-                assertTrue(isFirst) { "$testDataFile: Multiple test modules with the same name found: $name" }
+                assertTrue(isFirst) { "$origin: Multiple test modules with the same name found: $name" }
                 module
             }
 
         fun findModule(name: String): TestModule = exclusiveModules[name]
             ?: findSharedModule(name)
-            ?: fail { "$testDataFile: Module $name not found" }
+            ?: fail { "$origin: Module $name not found" }
 
         modules.forEach { module ->
             module.commit() // Save to the file system and release the memory.

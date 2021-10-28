@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
 import java.io.File
 
 internal class TestProvider(environment: TestEnvironment, testCases: Collection<TestCase>) {
-    private val testDataFileToTestCaseMapping = testCases.associateBy { it.testDataFile }
+    private val testDataFileToTestCaseMapping = testCases.associateBy { it.origin.file }
     private val testDataFileToTestCompilationMapping = computeCompilations(environment, testCases)
 
     fun getTestByTestDataFile(testDataFile: File): NativeTest {
@@ -45,7 +45,7 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
             )
         }
 
-        return NativeTest(executableFile, runParameters)
+        return NativeTest(executableFile, runParameters, testCase.origin)
     }
 
     companion object {
@@ -54,7 +54,7 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
             val regularTestCaseGroupingKey: (TestCase) -> Any = {
                 when (environment.globalEnvironment.testGrouping) {
                     TestGrouping.COMPILER_ARGS -> it.freeCompilerArgs
-                    TestGrouping.COMPILER_ARGS_AND_DIRECTORIES -> it.freeCompilerArgs to it.testDataFile.parent
+                    TestGrouping.COMPILER_ARGS_AND_DIRECTORIES -> it.freeCompilerArgs to it.origin.file.parent
                 }
             }
 
@@ -67,7 +67,7 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
                 when (testCase.kind) {
                     TestKind.STANDALONE, TestKind.STANDALONE_NO_TR -> {
                         // Create a separate compilation per each standalone test case.
-                        compilations[testCase.testDataFile] = compilationFactory.testCasesToExecutable(listOf(testCase))
+                        compilations[testCase.origin.file] = compilationFactory.testCasesToExecutable(listOf(testCase))
                     }
                     TestKind.REGULAR -> {
                         // Group regular test cases.
@@ -79,7 +79,7 @@ internal class TestProvider(environment: TestEnvironment, testCases: Collection<
             // Now, create compilations per each group of regular test cases.
             groupedRegularTestCases.forEach { (_, testCasesInGroup) ->
                 val compilation = compilationFactory.testCasesToExecutable(testCasesInGroup)
-                testCasesInGroup.forEach { testCase -> compilations[testCase.testDataFile] = compilation }
+                testCasesInGroup.forEach { testCase -> compilations[testCase.origin.file] = compilation }
             }
 
             return compilations
@@ -254,7 +254,7 @@ private fun createTestCase(
         kind = testKind,
         modules = testModules.values.toSet(),
         freeCompilerArgs = freeCompilerArgs,
-        testDataFile = testDataFile,
+        origin = TestOrigin.SingleTestDataFile(testDataFile),
         nominalPackageName = effectivePackageName,
         outputData = outputData,
         extras = if (testKind == TestKind.STANDALONE_NO_TR) {

@@ -34,7 +34,8 @@ internal sealed interface TestRunParameter {
 
 internal class NativeTest(
     val executableFile: File,
-    val runParameters: List<TestRunParameter>
+    val runParameters: List<TestRunParameter>,
+    val origin: TestOrigin.SingleTestDataFile
 )
 
 internal inline fun <reified T : TestRunParameter> List<TestRunParameter>.has(): Boolean =

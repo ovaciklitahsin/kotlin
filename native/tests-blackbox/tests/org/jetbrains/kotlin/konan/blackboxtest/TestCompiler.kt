@@ -234,7 +234,11 @@ private class TestCompilationImpl(
             applySources()
         }
 
-        runCompiler(args, expectedArtifactFile, environment.globalEnvironment.lazyKotlinNativeClassLoader)
+        val origin = TestOrigin.ManyTestDataFiles(
+            sourceModules.mapNotNullToSet { module -> (module as? TestModule.Exclusive)?.testCase?.origin?.file }
+        )
+
+        runCompiler(args, origin, expectedArtifactFile, environment.globalEnvironment.lazyKotlinNativeClassLoader)
     }
 }
 
@@ -268,8 +272,13 @@ private inline fun buildArgs(builderAction: ArgsBuilder.() -> Unit): Array<Strin
     return ArgsBuilder().apply(builderAction).build()
 }
 
-private fun runCompiler(args: Array<String>, expectedArtifactFile: File, lazyKotlinNativeClassLoader: Lazy<ClassLoader>) {
-    dumpCompilerArgs(args, expectedArtifactFile)
+private fun runCompiler(
+    args: Array<String>,
+    origin: TestOrigin.ManyTestDataFiles,
+    expectedArtifactFile: File,
+    lazyKotlinNativeClassLoader: Lazy<ClassLoader>
+) {
+    val compilerArgsFile = dumpCompilerArgs(args, expectedArtifactFile)
 
     val compilerXmlOutput: ByteArrayOutputStream
     val exitCode: ExitCode
@@ -315,16 +324,17 @@ private fun runCompiler(args: Array<String>, expectedArtifactFile: File, lazyKot
         compilerOutput = outputStream.toString(Charsets.UTF_8.name())
     }
 
-    val formattedCompilerOutput = formatCompilerOutput(exitCode, compilerOutput, durationMillis)
+    val formattedCompilerOutput = formatCompilerOutput(exitCode, compilerOutput, durationMillis, compilerArgsFile, origin)
     dumpCompilerOutput(formattedCompilerOutput, expectedArtifactFile)
 
     assertEquals(ExitCode.OK, exitCode) { "Compilation finished with non-zero exit code.\n\n$formattedCompilerOutput" }
     assertFalse(messageCollector.hasErrors()) { "Compilation finished with errors.\n\n$formattedCompilerOutput" }
 }
 
-private fun dumpCompilerArgs(args: Array<String>, expectedArtifactFile: File) {
+private fun dumpCompilerArgs(args: Array<String>, expectedArtifactFile: File): File {
     val outputFile = expectedArtifactFile.resolveSibling(expectedArtifactFile.name + ".args")
     outputFile.writeText(formatProcessArguments(args.asList()))
+    return outputFile
 }
 
 private fun dumpCompilerOutput(formattedCompilerOutput: String, expectedArtifactFile: File) {
