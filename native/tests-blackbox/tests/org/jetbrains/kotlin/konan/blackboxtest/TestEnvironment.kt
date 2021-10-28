@@ -133,8 +133,8 @@ internal enum class TestGrouping(val description: String) {
 internal sealed interface TestCacheSettings {
     object WithoutCache : TestCacheSettings
     object WithCache : TestCacheSettings {
-        fun getRootCacheDirectory(globalEnvironment: GlobalTestEnvironment, debuggable: Boolean): File = with(globalEnvironment) {
-            kotlinNativeHome.resolve("klib/cache").resolve(getCacheDirName(target, debuggable))
+        fun getRootCacheDirectory(globalEnvironment: GlobalTestEnvironment, debuggable: Boolean): File? = with(globalEnvironment) {
+            kotlinNativeHome.resolve("klib/cache").resolve(getCacheDirName(target, debuggable)).takeIf { it.exists() }
         }
 
         private const val DEFAULT_CACHE_KIND = "STATIC"
