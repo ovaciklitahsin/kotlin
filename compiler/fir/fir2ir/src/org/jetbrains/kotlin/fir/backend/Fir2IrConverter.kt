@@ -68,9 +68,10 @@ class Fir2IrConverter(
         }
         processClassAndNestedClassHeaders(regularClass)
         processClassMembers(regularClass, irClass)
+        bindFakeOverridesInClass(irClass)
     }
 
-    fun registerFileAndClasses(file: FirFile, moduleFragment: IrModuleFragment) {
+    private fun registerFileAndClasses(file: FirFile, moduleFragment: IrModuleFragment) {
         val fileEntry = when (file.origin) {
             FirDeclarationOrigin.Source -> PsiIrFileEntry(file.psi as KtFile)
             FirDeclarationOrigin.Synthetic -> object : IrFileEntry {
@@ -117,7 +118,7 @@ class Fir2IrConverter(
         }
     }
 
-    fun processFileAndClassMembers(file: FirFile) {
+    private fun processFileAndClassMembers(file: FirFile) {
         val irFile = declarationStorage.getIrFile(file)
         for (declaration in file.declarations) {
             val irDeclaration = processMemberDeclaration(declaration, null, irFile) ?: continue
@@ -158,6 +159,7 @@ class Fir2IrConverter(
         with(fakeOverrideGenerator) {
             irClass.addFakeOverrides(anonymousObject, realDeclarations)
         }
+        bindFakeOverridesInClass(irClass)
 
         return irClass
     }
@@ -241,13 +243,12 @@ class Fir2IrConverter(
     }
 
     private fun registerClassAndNestedClasses(regularClass: FirRegularClass, parent: IrDeclarationParent): IrClass {
+        // Local classes might be referenced before they declared (see usages of Fir2IrClassifierStorage.createLocalIrClass)
+        // So, we only need to set its parent properly
         val irClass =
-            // Local classes might be referenced before they declared (see usages of Fir2IrClassifierStorage.createLocalIrClass)
-            // So, we only need to set its parent properly
             classifierStorage.getCachedIrClass(regularClass)?.apply {
                 this.parent = parent
-            }
-                ?: classifierStorage.registerIrClass(regularClass, parent)
+            } ?: classifierStorage.registerIrClass(regularClass, parent)
         regularClass.declarations.forEach {
             if (it is FirRegularClass) {
                 registerClassAndNestedClasses(it, irClass)
