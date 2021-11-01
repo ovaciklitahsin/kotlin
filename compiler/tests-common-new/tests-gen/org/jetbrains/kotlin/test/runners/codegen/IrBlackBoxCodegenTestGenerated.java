@@ -16451,6 +16451,12 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
         }
 
         @Test
+        @TestMetadata("setLayoutOnAnonymous.kt")
+        public void testSetLayoutOnAnonymous() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/setLayoutOnAnonymous.kt");
+        }
+
+        @Test
         @TestMetadata("SuspendExtension.kt")
         public void testSuspendExtension() throws Exception {
             runTest("compiler/testData/codegen/box/fir/SuspendExtension.kt");

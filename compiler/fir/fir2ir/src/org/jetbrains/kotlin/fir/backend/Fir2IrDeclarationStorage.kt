@@ -1166,9 +1166,7 @@ class Fir2IrDeclarationStorage(
                     dispatchReceiverIrClass.declarations.find {
                         it is IrSimpleFunction && it.isFakeOverride && it.name == fir.name &&
                                 it.overrides(originalSymbol.owner as IrSimpleFunction)
-                    }?.symbol as? IrFunctionSymbol
-                        // Fallback for simple synthetic property
-                        ?: originalSymbol
+                    }?.symbol as IrFunctionSymbol
                 } else {
                     originalSymbol
                 }
