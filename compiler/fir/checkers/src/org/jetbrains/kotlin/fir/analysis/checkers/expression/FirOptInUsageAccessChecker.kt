@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
@@ -27,15 +28,20 @@ object FirOptInUsageAccessChecker : FirQualifiedAccessChecker() {
         val dispatchReceiverType =
             expression.dispatchReceiver.takeIf { it !is FirNoReceiverExpression }?.typeRef?.coneType?.fullyExpandedType(context.session)
         with(FirOptInUsageBaseChecker) {
+            val fromSetter: Boolean
+            val element: FirElement
+
             if (expression is FirVariableAssignment && resolvedSymbol is FirPropertySymbol) {
-                val experimentalities = resolvedSymbol.loadExperimentalities(context, fromSetter = true, dispatchReceiverType) +
-                        loadExperimentalitiesFromTypeArguments(context, expression.typeArguments)
-                reportNotAcceptedExperimentalities(experimentalities, expression.lValue, context, reporter)
-                return
+                fromSetter = true
+                element = expression.lValue
+            } else {
+                fromSetter = false
+                element = expression
             }
-            val experimentalities = resolvedSymbol.loadExperimentalities(context, fromSetter = false, dispatchReceiverType) +
+
+            val experimentalities = resolvedSymbol.loadExperimentalities(context, fromSetter = fromSetter, dispatchReceiverType) +
                     loadExperimentalitiesFromTypeArguments(context, expression.typeArguments)
-            reportNotAcceptedExperimentalities(experimentalities, expression, context, reporter)
+            reportNotAcceptedExperimentalities(experimentalities, element, context, reporter)
         }
     }
 }
