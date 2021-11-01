@@ -19,7 +19,11 @@ fun ExportedModule.toTypeScript(): String {
 }
 
 fun wrapTypeScript(name: String, moduleKind: ModuleKind, dts: String): String {
-    val types = "${moduleKind.indent}type Nullable<T> = T | null | undefined\n"
+    val types = """
+       type Nullable<T> = T | null | undefined  
+       const __doNotImplementIt: unique symbol
+       type __doNotImplementIt = typeof __doNotImplementIt
+    """.trimIndent().prependIndent(moduleKind.indent) + "\n"
 
     val declarationsDts = types + dts
 
@@ -119,14 +123,16 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
             " $superInterfacesKeyword " + superInterfaces.joinToString(", ") { it.toTypeScript(indent) }
         } else ""
 
-        val members = members.map {
-            if (!ir.isInner || it !is ExportedFunction || !it.isStatic) {
-                it
-            } else {
-                // Remove $outer argument from secondary constructors of inner classes
-                it.copy(parameters = it.parameters.drop(1))
+        val members = members
+            .let { if (!isInterface && superInterfaces.isEmpty()) it else it.withMagicProperty()  }
+            .map {
+                if (!ir.isInner || it !is ExportedFunction || !it.isStatic) {
+                    it
+                } else {
+                    // Remove $outer argument from secondary constructors of inner classes
+                    it.copy(parameters = it.parameters.drop(1))
+                }
             }
-        }
 
         val (innerClasses, nonInnerClasses) = nestedClasses.partition { it.ir.isInner }
         val innerClassesProperties = innerClasses.map { it.toReadonlyProperty() }
@@ -155,6 +161,22 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
 
         if (name.isValidES5Identifier()) klassExport + staticsExport else ""
     }
+}
+
+fun List<ExportedDeclaration>.withMagicProperty(): List<ExportedDeclaration> {
+    return plus(
+        ExportedProperty(
+            "__doNotUseIt",
+            ExportedType.TypeParameter("__doNotImplementIt"),
+            false,
+            true,
+            false,
+            false,
+            false,
+            null,
+            null
+        )
+    )
 }
 
 fun IrClass.asNestedClassAccess(): String {

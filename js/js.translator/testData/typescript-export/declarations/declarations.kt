@@ -180,6 +180,8 @@ enum class TestEnumClass(val constructorParameter: String) {
         val prop: String = "hello2"
     }
 }
+
+@JsExport
 interface TestInterface {
     val value: String
     fun getOwnerName(): String

@@ -135,10 +135,10 @@ function box(): string {
 
     assert(new TestEnumClass.Nested().prop == "hello2")
 
-    const test1: JS_TESTS.foo.TestInterface = { value: "bar", getOwnerName: () => "RandomObject" }
-    const test2 = new TestInterfaceImpl("bar")
-    assert(processInterface(test1) == "Owner RandomObject has value 'bar'")
-    assert(processInterface(test2) == "Owner TestInterfaceImpl has value 'bar'")
+    assert(processInterface(new TestInterfaceImpl("bar")) == "Owner TestInterfaceImpl has value 'bar'")
+
+    // @ts-expect-error "Just test that this code will throw compilation error for a user"
+    assert(processInterface({ value: "bar", getOwnerName: () => "RandomObject" }) == "Owner RandomObject has value 'bar'")
 
     return "OK";
 }

@@ -26,12 +26,9 @@ var KT_37829 = JS_TESTS.foo.KT_37829;
 var TestSealed = JS_TESTS.foo.TestSealed;
 var TestAbstract = JS_TESTS.foo.TestAbstract;
 var TestDataClass = JS_TESTS.foo.TestDataClass;
-<<<<<<< HEAD
 var TestEnumClass = JS_TESTS.foo.TestEnumClass;
-=======
 var TestInterfaceImpl = JS_TESTS.foo.TestInterfaceImpl;
 var processInterface = JS_TESTS.foo.processInterface;
->>>>>>> d344ab3f8 (feat(@JsExport for interfaces): add ability to export interfaces in TypeScript.)
 function assert(condition) {
     if (!condition) {
         throw "Assertion failed";
@@ -100,7 +97,6 @@ function box() {
     assert(new TestAbstract.BB().name == "BB");
     assert(new TestAbstract.BB().baz() == "baz");
     assert(new TestDataClass.Nested().prop == "hello");
-<<<<<<< HEAD
     assert(TestEnumClass.A.foo == 0);
     assert(TestEnumClass.B.foo == 1);
     assert(TestEnumClass.A.bar("aBar") == "aBar");
@@ -118,11 +114,8 @@ function box() {
     assert(TestEnumClass.A.ordinal === 0);
     assert(TestEnumClass.B.ordinal === 1);
     assert(new TestEnumClass.Nested().prop == "hello2");
-=======
-    var test1 = { value: "bar", getOwnerName: function () { return "RandomObject"; } };
-    var test2 = new TestInterfaceImpl("bar");
-    assert(processInterface(test1) == "Owner RandomObject has value 'bar'");
-    assert(processInterface(test2) == "Owner TestInterfaceImpl has value 'bar'");
->>>>>>> d344ab3f8 (feat(@JsExport for interfaces): add ability to export interfaces in TypeScript.)
+    assert(processInterface(new TestInterfaceImpl("bar")) == "Owner TestInterfaceImpl has value 'bar'");
+    // @ts-expect-error "Just test that this code will throw compilation error for a user"
+    assert(processInterface({ value: "bar", getOwnerName: function () { return "RandomObject"; } }) == "Owner RandomObject has value 'bar'");
     return "OK";
 }
