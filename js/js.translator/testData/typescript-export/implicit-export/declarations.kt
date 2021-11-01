@@ -8,7 +8,8 @@
 
 package foo
 
-data class NonExportedType(val value: Int)
+interface NonExportedInterface
+open class NonExportedType(val value: Int)
 
 @JsExport
 fun producer(value: Int): NonExportedType {
@@ -21,8 +22,14 @@ fun consumer(value: NonExportedType): Int {
 }
 
 @JsExport
-class ExportedType(var value: NonExportedType) {
+class A(var value: NonExportedType) {
     fun <T: NonExportedType> increment(t: T): NonExportedType {
-       return t.copy(value = t.value + 1)
+       return NonExportedType(value = t.value + 1)
     }
 }
+
+@JsExport
+class B(v: Int) : NonExportedType(v)
+
+@JsExport
+class C : NonExportedInterface

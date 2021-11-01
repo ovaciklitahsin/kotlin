@@ -113,11 +113,31 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
     is ExportedClass -> {
         val keyword = if (isInterface) "interface" else "class"
         val superInterfacesKeyword = if (isInterface) "extends" else "implements"
+        val (exportedInterfaces, nonExportedInterfaces) = superInterfaces.partition { it !is ExportedType.ImplicitlyExportedType }
 
-        val superClassClause = superClass?.let { " extends ${it.toTypeScript(indent)}" } ?: ""
-        val superInterfacesClause = if (superInterfaces.isNotEmpty()) {
-            " $superInterfacesKeyword " + superInterfaces.joinToString(", ") { it.toTypeScript(indent) }
-        } else ""
+        val superClassClause = superClass?.let {
+            if (it is ExportedType.ImplicitlyExportedType) {
+                " /* extends ${it.type.toTypeScript(indent)} */"
+            } else {
+                " extends ${it.toTypeScript(indent)}"
+            }
+        } ?: ""
+        val superInterfacesClause = when {
+            exportedInterfaces.isEmpty() && nonExportedInterfaces.isNotEmpty() ->
+                " /* $superInterfacesKeyword ${
+                    nonExportedInterfaces.joinToString(", ") {
+                        (it as ExportedType.ImplicitlyExportedType).type.toTypeScript(indent)
+                    }
+                } */"
+            exportedInterfaces.isNotEmpty() ->
+                " $superInterfacesKeyword " + exportedInterfaces.joinToString(", ") { it.toTypeScript(indent) } +
+                        "/*, ${
+                            nonExportedInterfaces.joinToString(", ") {
+                                (it as ExportedType.ImplicitlyExportedType).type.toTypeScript(indent)
+                            }
+                        } */"
+            else -> ""
+        }
 
         val members = members.map {
             if (!ir.isInner || it !is ExportedFunction || !it.isStatic) {
@@ -151,7 +171,8 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
 
         val nestedClasses = nonInnerClasses + innerClasses.map { it.withProtectedConstructors() }
         val klassExport = "$prefix$modifiers$keyword $name$renderedTypeParameters$superClassClause$superInterfacesClause {\n$bodyString}"
-        val staticsExport = if (nestedClasses.isNotEmpty()) "\n" + ExportedNamespace(name, nestedClasses).toTypeScript(indent, prefix) else ""
+        val staticsExport =
+            if (nestedClasses.isNotEmpty()) "\n" + ExportedNamespace(name, nestedClasses).toTypeScript(indent, prefix) else ""
 
         if (name.isValidES5Identifier()) klassExport + staticsExport else ""
     }

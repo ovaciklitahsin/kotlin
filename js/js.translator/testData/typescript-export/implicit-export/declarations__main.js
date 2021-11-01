@@ -2,7 +2,9 @@
 var foo = JS_TESTS.foo;
 var producer = JS_TESTS.foo.producer;
 var consumer = JS_TESTS.foo.consumer;
-var ExportedType = JS_TESTS.foo.ExportedType;
+var A = JS_TESTS.foo.A;
+var B = JS_TESTS.foo.B;
+var C = JS_TESTS.foo.C;
 function assert(condition) {
     if (!condition) {
         throw "Assertion failed";
@@ -10,10 +12,12 @@ function assert(condition) {
 }
 function box() {
     var nonExportedType = producer(42);
-    var exportedType = new ExportedType(nonExportedType);
+    var a = new A(nonExportedType);
+    var b = new B(43);
     assert(consumer(nonExportedType) == 42);
-    exportedType.value = producer(24);
-    assert(consumer(exportedType.value) == 24);
-    assert(consumer(exportedType.increment(nonExportedType)) == 43);
+    a.value = producer(24);
+    assert(consumer(b) == 43);
+    assert(consumer(a.value) == 24);
+    assert(consumer(a.increment(nonExportedType)) == 43);
     return "OK";
 }

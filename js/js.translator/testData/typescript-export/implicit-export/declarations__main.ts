@@ -2,7 +2,9 @@
 import foo = JS_TESTS.foo;
 import producer = JS_TESTS.foo.producer;
 import consumer = JS_TESTS.foo.consumer;
-import ExportedType = JS_TESTS.foo.ExportedType;
+import A = JS_TESTS.foo.A;
+import B = JS_TESTS.foo.B;
+import C = JS_TESTS.foo.C;
 
 function assert(condition: boolean) {
     if (!condition) {
@@ -12,12 +14,15 @@ function assert(condition: boolean) {
 
 function box(): string {
     const nonExportedType = producer(42)
-    const exportedType = new ExportedType(nonExportedType)
+    const a = new A(nonExportedType)
+    const b = new B(43)
 
     assert(consumer(nonExportedType) == 42)
 
-    exportedType.value = producer(24)
-    assert(consumer(exportedType.value) == 24)
-    assert(consumer(exportedType.increment(nonExportedType)) == 43)
+    a.value = producer(24)
+    assert(consumer(b) == 43)
+    assert(consumer(a.value) == 24)
+    assert(consumer(a.increment(nonExportedType)) == 43)
+
     return "OK";
 }
