@@ -2203,6 +2203,11 @@ public class IrBoxJsES6TestGenerated extends AbstractIrBoxJsES6Test {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/export"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
         }
 
+        @TestMetadata("bridgeSavingAfterExport.kt")
+        public void testBridgeSavingAfterExport() throws Exception {
+            runTest("js/js.translator/testData/box/export/bridgeSavingAfterExport.kt");
+        }
+
         @TestMetadata("defaultInlineClassConstructorParam.kt")
         public void testDefaultInlineClassConstructorParam() throws Exception {
             runTest("js/js.translator/testData/box/export/defaultInlineClassConstructorParam.kt");
