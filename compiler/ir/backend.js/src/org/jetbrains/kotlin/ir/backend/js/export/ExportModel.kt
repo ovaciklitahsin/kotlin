@@ -118,7 +118,15 @@ sealed class ExportedType {
     class UnionType(val lhs: ExportedType, val rhs: ExportedType) : ExportedType()
 
     class IntersectionType(val lhs: ExportedType, val rhs: ExportedType) : ExportedType()
+    class ImplicitlyExportedType(val type: ExportedType) : ExportedType() {
+        override fun withNullability(nullable: Boolean) =
+            ImplicitlyExportedType(type.withNullability(nullable))
+    }
 
-    fun withNullability(nullable: Boolean) =
+    open fun withNullability(nullable: Boolean) =
         if (nullable) Nullable(this) else this
+
+    fun withImplicitlyExported(implicitlyExportedType: Boolean) =
+        if (implicitlyExportedType) ImplicitlyExportedType(this) else this
+
 }

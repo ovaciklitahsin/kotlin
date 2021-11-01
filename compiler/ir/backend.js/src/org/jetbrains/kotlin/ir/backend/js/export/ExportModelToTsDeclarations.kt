@@ -235,4 +235,7 @@ fun ExportedType.toTypeScript(indent: String): String = when (this) {
     }
     is ExportedType.LiteralType.StringLiteralType -> "\"$value\""
     is ExportedType.LiteralType.NumberLiteralType -> value.toString()
+    is ExportedType.ImplicitlyExportedType -> {
+        ExportedType.Primitive.Any.toTypeScript(indent) + "/* ${type.toTypeScript("")} */"
+    }
 }
