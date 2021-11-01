@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased
 
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.Fe10DescKtValueParameterSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtTypeAndAnnotations
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.pointers.Fe10NeverRestoringKtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.Fe10PsiKtSymbol
@@ -32,7 +33,14 @@ internal class Fe10PsiLiteralKtAnonymousFunctionSymbol(
     }
 
     override val valueParameters: List<KtValueParameterSymbol>
-        get() = withValidityAssertion { psi.valueParameters.map { Fe10PsiKtValueParameterSymbol(it, analysisContext) } }
+        get() = withValidityAssertion {
+            return if (psi.valueParameters.isNotEmpty()) {
+                psi.valueParameters.map { Fe10PsiKtValueParameterSymbol(it, analysisContext) }
+            } else {
+                // There might be implicit 'it'
+                descriptor?.valueParameters.orEmpty().map { Fe10DescKtValueParameterSymbol(it, analysisContext) }
+            }
+        }
 
     override val hasStableParameterNames: Boolean
         get() = withValidityAssertion { true }
