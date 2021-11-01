@@ -54,7 +54,12 @@ public class THashSet<T> extends TObjectHash<T> implements Set<T> {
 package m2
 import m1.THashSet
 
+interface HeaderSet : Set<String>
+
+class MutableHeaderSet : HeaderSet, MutableSet<String>, THashSet<String>()
+
 fun box(): String {
-    val size = THashSet<String>().size
-    return if (size == 1) "OK" else "$size"
+    val size1 = THashSet<String>().size
+    val size2 = MutableHeaderSet().size
+    return if (size1 == 1 && size2 == 1) "OK" else "$size1/$size2"
 }

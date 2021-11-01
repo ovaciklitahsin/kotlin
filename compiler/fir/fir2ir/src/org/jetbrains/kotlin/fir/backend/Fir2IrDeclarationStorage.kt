@@ -1221,7 +1221,20 @@ class Fir2IrDeclarationStorage(
 
         val originalSymbol = dispatchReceiverLookupTag.getIrCallableSymbol()
         val originalProperty = originalSymbol.owner as IrProperty
-        if (originalProperty.isFakeOverride && originalProperty.overriddenSymbols.isEmpty()) {
+
+        fun IrProperty.isIllegalFakeOverride(): Boolean {
+            if (!isFakeOverride) return false
+            val overriddenSymbols = overriddenSymbols
+            if (overriddenSymbols.isEmpty() || overriddenSymbols.any { it.owner.isIllegalFakeOverride() }) {
+                return true
+            }
+            return false
+        }
+
+        if (dispatchReceiverLookupTag != null &&
+            firPropertySymbol is FirSyntheticPropertySymbol &&
+            originalProperty.isIllegalFakeOverride()
+        ) {
             // Fallback for a synthetic property complex case
             return containingClassLookupTag.getIrCallableSymbol()
         }
