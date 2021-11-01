@@ -15,35 +15,7 @@ import org.jetbrains.kotlin.gradle.utils.isConfigurationCacheAvailable
 import java.text.SimpleDateFormat
 import java.util.*
 
-internal fun configureReporting(gradle: Gradle) {
-    val buildDataProcessors = ArrayList<BuildExecutionDataProcessor>()
-
-    val rootProject = gradle.rootProject
-    val log = rootProject.logger
-    val reportingSettings = reportingSettings(rootProject)
-    gradle.taskGraph.whenReady { graph ->
-        graph.allTasks.asSequence()
-            .filterIsInstance<AbstractKotlinCompile<*>>()
-            .forEach { it.reportingSettings = reportingSettings }
-    }
-
-    if (reportingSettings.buildReportMode != BuildReportMode.NONE && reportingSettings.buildReportDir != null) {
-        configurePlainTextReportWriter(rootProject.name, log, reportingSettings)?.let {
-            buildDataProcessors.add(it)
-        }
-    }
-
-    if (reportingSettings.metricsOutputFile != null) {
-        buildDataProcessors.add(MetricsWriter(reportingSettings.metricsOutputFile.absoluteFile, log))
-    }
-
-    if (buildDataProcessors.isNotEmpty() && !isConfigurationCacheAvailable(gradle)) {
-        val listener = BuildDataRecorder(gradle, buildDataProcessors)
-        gradle.addBuildListener(listener)
-    }
-}
-
-private fun reportingSettings(rootProject: Project): ReportingSettings {
+internal fun reportingSettings(rootProject: Project): ReportingSettings {
     val properties = PropertiesProvider(rootProject)
     val buildReportMode =
         when {
@@ -63,9 +35,8 @@ private fun reportingSettings(rootProject: Project): ReportingSettings {
     )
 }
 
-private fun configurePlainTextReportWriter(
+internal fun configurePlainTextReportWriter(
     rootProjectName: String,
-    log: Logger,
     reportingSettings: ReportingSettings
 ): BuildExecutionDataProcessor? {
     return reportingSettings.buildReportDir?.let { reportDir ->
@@ -74,8 +45,7 @@ private fun configurePlainTextReportWriter(
 
         return PlainTextBuildReportWriter(
             outputFile = reportFile,
-            printMetrics = reportingSettings.includeMetricsInReport,
-            log = log
+            printMetrics = reportingSettings.includeMetricsInReport
         )
     }
 }

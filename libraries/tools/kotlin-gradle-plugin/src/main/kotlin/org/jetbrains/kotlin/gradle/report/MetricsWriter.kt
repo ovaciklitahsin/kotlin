@@ -18,10 +18,9 @@ import java.io.ObjectOutputStream
 
 internal class MetricsWriter(
     private val outputFile: File,
-    private val log: Logger
 ) : BuildExecutionDataProcessor {
-    override fun process(build: BuildExecutionData) {
-        if (build.failure != null) return
+    override fun process(build: BuildExecutionData, log: Logger) {
+        if (build.failureMessages.isNotEmpty()) return
 
         try {
             outputFile.parentFile?.apply { mkdirs() }
@@ -35,19 +34,20 @@ internal class MetricsWriter(
             }
 
             for (data in build.taskExecutionData) {
-                val path = data.task.path
-                val type = data.task::class.java.canonicalName
+                val path = data.taskPath
+//                val type = data.task::class.java.canonicalName
                 val buildTimes = data.buildMetrics.buildTimes.asMap().mapKeys { (k, _) -> k.name }
                 val buildPerfMetrics = data.buildMetrics.buildPerformanceMetrics.asMap().mapKeys { (k, _) -> k.name }
                 val buildAttributes = data.buildMetrics.buildAttributes.asMap().mapKeys { (k, _) -> k.name }
                 buildMetricsData.taskData[path] =
                     TaskData(
                         path = path,
-                        typeFqName = type,
+                        //TODO
+                        typeFqName = "type",
                         timeMetrics = buildTimes,
                         performanceMetrics = buildPerfMetrics,
                         buildAttributes = buildAttributes,
-                        didWork = data.task.didWork
+                        didWork = data.didWork
                     )
             }
 

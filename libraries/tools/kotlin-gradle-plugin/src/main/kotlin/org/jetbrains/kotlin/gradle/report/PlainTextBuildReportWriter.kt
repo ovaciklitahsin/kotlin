@@ -12,18 +12,18 @@ import org.jetbrains.kotlin.gradle.report.data.BuildExecutionDataProcessor
 import org.jetbrains.kotlin.gradle.report.data.TaskExecutionData
 import org.jetbrains.kotlin.gradle.utils.Printer
 import java.io.File
+import java.io.Serializable
 import java.util.*
 import kotlin.math.max
 
 internal class PlainTextBuildReportWriter(
     private val outputFile: File,
-    private val printMetrics: Boolean,
-    private val log: Logger
-) : BuildExecutionDataProcessor {
+    private val printMetrics: Boolean
+) : BuildExecutionDataProcessor, Serializable {
 
     private lateinit var p: Printer
 
-    override fun process(build: BuildExecutionData) {
+    override fun process(build: BuildExecutionData, log: Logger) {
         try {
             outputFile.parentFile.mkdirs()
             if (!(outputFile.parentFile.exists() && outputFile.parentFile.isDirectory)) {
@@ -55,8 +55,8 @@ internal class PlainTextBuildReportWriter(
         }
 
         p.println()
-        if (build.failure != null) {
-            p.println("Build failed: ${build.failure}")
+        if (build.failureMessages.isNotEmpty()) {
+            p.println("Build failed: ${build.failureMessages}")
         }
         p.println()
     }
@@ -148,7 +148,7 @@ internal class PlainTextBuildReportWriter(
         for (task in kotlinTasks.sortedByDescending { it.totalTimeMs }) {
             val timeMs = task.totalTimeMs
             val percent = (timeMs.toDouble() / kotlinTotalTimeMs * 100).asString(1)
-            table.addRow(formatTime(timeMs), "$percent %", task.task.path)
+            table.addRow(formatTime(timeMs), "$percent %", task.taskPath)
         }
         table.printTo(p)
         p.println()
@@ -162,15 +162,15 @@ internal class PlainTextBuildReportWriter(
     }
 
     private fun printTaskLog(task: TaskExecutionData) {
-        val skipMessage = task.resultState.skipMessage
+        val skipMessage = task.skipMessage
         if (skipMessage != null) {
-            p.println("Task '${task.task.path}' was skipped: $skipMessage")
+            p.println("Task '${task.taskPath}' was skipped: $skipMessage")
         } else {
-            p.println("Task '${task.task.path}' finished in ${formatTime(task.totalTimeMs)}")
+            p.println("Task '${task.taskPath}' finished in ${formatTime(task.totalTimeMs)}")
         }
 
         if (task.icLogLines.isNotEmpty()) {
-            p.withIndent("Compilation log for task '${task.task.path}':") {
+            p.withIndent("Compilation log for task '${task.taskPath}':") {
                 task.icLogLines.forEach { p.println(it) }
             }
         }

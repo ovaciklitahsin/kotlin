@@ -18,10 +18,9 @@ import org.jetbrains.kotlin.gradle.plugin.stat.ReportStatistics
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildEsStatListener
 import org.jetbrains.kotlin.gradle.plugin.statistics.ReportStatisticsToBuildScan
 import org.jetbrains.kotlin.gradle.plugin.statistics.ReportStatisticsToElasticSearch
-import org.jetbrains.kotlin.gradle.report.configureReporting
 import java.io.File
 
-abstract class KotlinGradleBuildServices : BuildService<KotlinGradleBuildServices.Parameters>, AutoCloseable {
+internal abstract class KotlinGradleBuildServices : BuildService<KotlinGradleBuildServices.Parameters>, AutoCloseable {
 
     interface Parameters : BuildServiceParameters {
         var buildDir: File
@@ -29,7 +28,7 @@ abstract class KotlinGradleBuildServices : BuildService<KotlinGradleBuildService
     }
 
     private val log = Logging.getLogger(this.javaClass)
-    private var buildHandler: KotlinGradleFinishBuildHandler = KotlinGradleFinishBuildHandler()
+    private val buildHandler: KotlinGradleFinishBuildHandler = KotlinGradleFinishBuildHandler()
     private val CLASS_NAME = KotlinGradleBuildServices::class.java.simpleName
     val INIT_MESSAGE = "Initialized $CLASS_NAME"
     val DISPOSE_MESSAGE = "Disposed $CLASS_NAME"
@@ -53,7 +52,6 @@ abstract class KotlinGradleBuildServices : BuildService<KotlinGradleBuildService
             "kotlin-build-service-${KotlinGradleBuildServices::class.java.canonicalName}_${KotlinGradleBuildServices::class.java.classLoader.hashCode()}",
             KotlinGradleBuildServices::class.java
         ) { service ->
-            configureReporting(project.gradle)
             service.parameters.rootDir = project.rootProject.rootDir
             service.parameters.buildDir = project.rootProject.buildDir
             addListeners(project)
