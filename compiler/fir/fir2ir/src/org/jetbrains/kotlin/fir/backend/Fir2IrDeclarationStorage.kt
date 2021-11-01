@@ -1135,7 +1135,7 @@ class Fir2IrDeclarationStorage(
                 }
                 val originalSymbol = getIrCallableSymbol(
                     firFunctionSymbol,
-                    dispatchReceiverLookupTag,
+                    dispatchReceiverLookupTag.takeIf { it !is ConeClassLookupTagWithFixedSymbol },
                     getCachedIrDeclaration = ::getCachedIrFunction,
                     createIrDeclaration = { parent, origin -> createIrFunction(fir, parent, predefinedOrigin = origin) },
                     createIrLazyDeclaration = { signature, lazyParent, declarationOrigin ->
@@ -1194,7 +1194,7 @@ class Fir2IrDeclarationStorage(
 
         fun ConeClassLikeLookupTag?.getIrCallableSymbol() = getIrCallableSymbol(
             firPropertySymbol,
-            dispatchReceiverLookupTag = this,
+            dispatchReceiverLookupTag = this.takeIf { it !is ConeClassLookupTagWithFixedSymbol },
             getCachedIrDeclaration = ::getCachedIrProperty,
             createIrDeclaration = { parent, origin -> createIrProperty(fir, parent, predefinedOrigin = origin) },
             createIrLazyDeclaration = { signature, lazyParent, declarationOrigin ->
