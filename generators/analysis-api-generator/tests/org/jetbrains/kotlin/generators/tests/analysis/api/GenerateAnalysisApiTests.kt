@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractInnerDecl
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.analysis.api.descriptors.test.components.*
 import org.jetbrains.kotlin.analysis.api.descriptors.test.symbols.AbstractKtFe10SymbolByFqNameTest
+import org.jetbrains.kotlin.analysis.api.descriptors.test.symbols.AbstractKtFe10SymbolByPsiTest
 import org.jetbrains.kotlin.analysis.api.descriptors.test.symbols.AbstractKtFe10SymbolByReferenceTest
 import org.jetbrains.kotlin.analysis.api.fir.components.AbstractFirExpectedExpressionTypeTest
 import org.jetbrains.kotlin.analysis.api.fir.components.AbstractFirHLExpressionTypeTest
@@ -123,9 +124,9 @@ fun main(args: Array<String>) {
 //                model("scopes/fileScopeTest", extension = "kt")
 //            }
 
-//            testClass<AbstractKtFe10SymbolByPsiTest> {
-//                model("symbols/symbolByPsi")
-//            }
+            testClass<AbstractKtFe10SymbolByPsiTest> {
+                model("symbols/symbolByPsi")
+            }
 
 //            testClass<AbstractKtFe10CompileTimeConstantEvaluatorTest> {
 //                model("components/compileTimeConstantEvaluator")
