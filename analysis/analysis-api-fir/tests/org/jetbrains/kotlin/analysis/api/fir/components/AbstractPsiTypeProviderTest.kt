@@ -45,7 +45,7 @@ abstract class AbstractPsiTypeProviderTest : AbstractHLApiSingleFileTest(FirFron
                 }
             }
         }
-        testServices.assertions.assertEqualsToFile(testDataFileSibling(".txt"), actual)
+        testServices.assertions.assertEqualsToTestDataFileSibling(actual)
     }
 
     private fun KtLightClass.findLightDeclarationContext(ktDeclaration: KtDeclaration): KtLightElement<*, *>? {
