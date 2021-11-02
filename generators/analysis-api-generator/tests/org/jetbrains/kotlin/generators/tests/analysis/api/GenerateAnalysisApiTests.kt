@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.AbstractFi
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractInnerDeclarationsResolvePhaseTest
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.analysis.api.descriptors.test.components.*
+import org.jetbrains.kotlin.analysis.api.descriptors.test.symbols.AbstractKtFe10CompileTimeConstantEvaluatorTest
 import org.jetbrains.kotlin.analysis.api.descriptors.test.symbols.AbstractKtFe10SymbolByFqNameTest
 import org.jetbrains.kotlin.analysis.api.descriptors.test.symbols.AbstractKtFe10SymbolByPsiTest
 import org.jetbrains.kotlin.analysis.api.descriptors.test.symbols.AbstractKtFe10SymbolByReferenceTest
@@ -129,9 +130,9 @@ fun main(args: Array<String>) {
                 model("symbols/symbolByPsi")
             }
 
-//            testClass<AbstractKtFe10CompileTimeConstantEvaluatorTest> {
-//                model("components/compileTimeConstantEvaluator")
-//            }
+            testClass<AbstractKtFe10CompileTimeConstantEvaluatorTest> {
+                model("components/compileTimeConstantEvaluator")
+            }
 
             testClass<AbstractKtFe10SymbolByFqNameTest> {
                 model("symbols/symbolByFqName")
