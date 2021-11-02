@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.generators.tests.analysis.api
 
+import org.jetbrains.kotlin.analysis.api.descriptors.test.AbstractKtFe10ResolveCallTest
 import org.jetbrains.kotlin.analysis.api.fir.AbstractFirReferenceResolveTest
 import org.jetbrains.kotlin.analysis.api.fir.components.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.*
@@ -112,9 +113,9 @@ fun main(args: Array<String>) {
         }
 
         testGroup("analysis/analysis-api-fe10/tests", "analysis/analysis-api/testData") {
-//            testClass<AbstractKtFe10ResolveCallTest> {
-//                model("analysisSession/resolveCall")
-//            }
+            testClass<AbstractKtFe10ResolveCallTest> {
+                model("analysisSession/resolveCall")
+            }
 
 //            testClass<AbstractKtFe10MemberScopeByFqNameTest> {
 //                model("scopes/memberScopeByFqName")
