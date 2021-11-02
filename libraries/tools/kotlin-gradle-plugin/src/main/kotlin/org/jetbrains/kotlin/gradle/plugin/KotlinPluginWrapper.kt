@@ -89,7 +89,7 @@ abstract class KotlinBasePluginWrapper: Plugin<Project> {
         }
         project.registerCommonizerClasspathConfigurationIfNecessary()
 
-        KotlinGradleBuildServices.registerIfAbsent(project)
+        KotlinGradleBuildServices.registerIfAbsent(project).get()
 
         KotlinGradleBuildServices.detectKotlinPluginLoadedInMultipleProjects(project, kotlinPluginVersion)
 

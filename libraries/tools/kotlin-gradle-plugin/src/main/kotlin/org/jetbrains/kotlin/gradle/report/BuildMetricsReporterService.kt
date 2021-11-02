@@ -80,6 +80,9 @@ abstract class BuildMetricsReporterService : BuildService<BuildMetricsReporterSe
             taskExecutionData = taskRecords.values.sortedBy { it.startMs }
         )
         parameters.buildDataProcessors.forEach { it.process(buildData, log) }
+        buildMetricsMap.clear()
+        taskRecords.clear()
+        failureMessages.clear()
     }
 
     companion object {
