@@ -58,19 +58,16 @@ internal abstract class KotlinGradleBuildServices : BuildService<KotlinGradleBui
         }
 
         fun addListeners(project: Project) {
-            val kotlinGradleEsListenerProvider = project.provider {
-                val listeners = project.rootProject.objects.listProperty(ReportStatistics::class.java)
-                    .value(listOf<ReportStatistics>(ReportStatisticsToElasticSearch))
-                if (project.gradle.startParameter.isBuildScan) {
-                    project.rootProject.extensions.findByName("buildScan")
-                        ?.also { listeners.add(ReportStatisticsToBuildScan(it as BuildScanExtension)) }
+            project.rootProject.extensions.findByName("buildScan")
+                ?.also {
+                    val listeners = project.rootProject.objects.listProperty(ReportStatistics::class.java)
+                        .value(listOf<ReportStatistics>(ReportStatisticsToElasticSearch))
+                    listeners.add(ReportStatisticsToBuildScan(it as BuildScanExtension))
+                    val esStatListener = KotlinBuildEsStatListener(project.rootProject.name, listeners.get())
+                    val listenerRegistryHolder = BuildEventsListenerRegistryHolder.getInstance(project)
+
+                    listenerRegistryHolder.listenerRegistry.onTaskCompletion(project.provider { esStatListener })
                 }
-                KotlinBuildEsStatListener(project.rootProject.name, listeners.get())
-            }
-
-            val listenerRegistryHolder = BuildEventsListenerRegistryHolder.getInstance(project)
-
-            listenerRegistryHolder.listenerRegistry.onTaskCompletion(kotlinGradleEsListenerProvider)
         }
 
         private val multipleProjectsHolder = KotlinPluginInMultipleProjectsHolder(
