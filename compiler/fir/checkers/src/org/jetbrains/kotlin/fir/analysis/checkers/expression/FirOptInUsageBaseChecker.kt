@@ -39,6 +39,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.checkers.OptInNames
 import org.jetbrains.kotlin.utils.SmartSet
 import org.jetbrains.kotlin.utils.addIfNotNull
+import java.util.concurrent.ConcurrentHashMap
 
 object FirOptInUsageBaseChecker {
     data class Experimentality(val annotationClassId: ClassId, val severity: Severity, val message: String?) {
@@ -112,10 +113,17 @@ object FirOptInUsageBaseChecker {
         ensureResolved(FirResolvePhase.STATUS)
         val fir = this.fir as? FirAnnotatedDeclaration ?: return SmartSet.create()
 
-        val isDefaultExperimentalities = !fromSetter && dispatchReceiverType == null
+        val isDefaultExperimentalities = !fromSetter
+        var defaultExperimentalitiesForTypeMap: ConcurrentHashMap<ConeKotlinType, SmartSet<Experimentality>>? = null
         if (isDefaultExperimentalities) {
-            val defaultExperimentalities = fir.defaultExperimentalitiesAttr
-            if (defaultExperimentalities != null) return defaultExperimentalities
+            if (dispatchReceiverType == null) {
+                fir.defaultExperimentalitiesAttr?.let { return it }
+            } else {
+                defaultExperimentalitiesForTypeMap = fir.defaultExperimentalitiesForTypeAttr
+                if (defaultExperimentalitiesForTypeMap != null) {
+                    defaultExperimentalitiesForTypeMap[dispatchReceiverType]?.let { return it }
+                }
+            }
         }
 
         val result = SmartSet.create<Experimentality>()
@@ -182,7 +190,15 @@ object FirOptInUsageBaseChecker {
 
         // TODO: getAnnotationsOnContainingModule
         if (isDefaultExperimentalities) {
-            fir.defaultExperimentalitiesAttr = result
+            if (dispatchReceiverType == null) {
+                fir.defaultExperimentalitiesAttr = result
+            } else {
+                if (defaultExperimentalitiesForTypeMap == null) {
+                    defaultExperimentalitiesForTypeMap = ConcurrentHashMap<ConeKotlinType, SmartSet<Experimentality>>()
+                    fir.defaultExperimentalitiesForTypeAttr = defaultExperimentalitiesForTypeMap
+                }
+                defaultExperimentalitiesForTypeMap[dispatchReceiverType] = result
+            }
         }
 
         return result
@@ -299,9 +315,14 @@ object FirOptInUsageBaseChecker {
     }
 
     private object DefaultExperimentalitiesKey : FirDeclarationDataKey()
+    private object DefaultExperimentalitiesForTypeKey : FirDeclarationDataKey()
 
     var FirAnnotatedDeclaration.defaultExperimentalitiesAttr: SmartSet<Experimentality>? by FirDeclarationDataRegistry.data(
         DefaultExperimentalitiesKey
+    )
+
+    var FirAnnotatedDeclaration.defaultExperimentalitiesForTypeAttr: ConcurrentHashMap<ConeKotlinType, SmartSet<Experimentality>>? by FirDeclarationDataRegistry.data(
+        DefaultExperimentalitiesForTypeKey
     )
 }
 
