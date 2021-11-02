@@ -19,9 +19,13 @@ fun ExportedModule.toTypeScript(): String {
 }
 
 fun wrapTypeScript(name: String, moduleKind: ModuleKind, dts: String): String {
+    val declareKeyword = when (moduleKind) {
+        ModuleKind.PLAIN -> ""
+        else -> "declare "
+    }
     val types = """
        type Nullable<T> = T | null | undefined  
-       const __doNotImplementIt: unique symbol
+       ${declareKeyword}const __doNotImplementIt: unique symbol
        type __doNotImplementIt = typeof __doNotImplementIt
     """.trimIndent().prependIndent(moduleKind.indent) + "\n"
 
@@ -124,7 +128,7 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
         } else ""
 
         val members = members
-            .let { if (!isInterface && superInterfaces.isEmpty()) it else it.withMagicProperty()  }
+            .let { if (shouldNotBeImplemented()) it.withMagicProperty() else it }
             .map {
                 if (!ir.isInner || it !is ExportedFunction || !it.isStatic) {
                     it
@@ -161,6 +165,10 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
 
         if (name.isValidES5Identifier()) klassExport + staticsExport else ""
     }
+}
+
+fun ExportedClass.shouldNotBeImplemented(): Boolean {
+    return (isInterface && !ir.isExternal) || superInterfaces.any { it is ExportedType.ClassType && !it.ir.isExternal }
 }
 
 fun List<ExportedDeclaration>.withMagicProperty(): List<ExportedDeclaration> {

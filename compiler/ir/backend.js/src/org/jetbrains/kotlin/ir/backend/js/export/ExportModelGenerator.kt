@@ -479,7 +479,8 @@ class ExportModelGenerator(
                     ClassKind.ENUM_CLASS,
                     ClassKind.INTERFACE -> ExportedType.ClassType(
                         name,
-                        type.arguments.map { exportTypeArgument(it) }
+                        type.arguments.map { exportTypeArgument(it) },
+                        klass
                     )
                 }
             }
