@@ -18,6 +18,7 @@ import org.gradle.tooling.events.task.TaskSkippedResult
 import org.jetbrains.kotlin.build.report.metrics.BuildMetrics
 import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
 import org.jetbrains.kotlin.build.report.metrics.BuildTime
+import org.jetbrains.kotlin.gradle.plugin.KotlinGradleBuildServices
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskExecutionResults
 import org.jetbrains.kotlin.gradle.report.data.BuildExecutionData
 import org.jetbrains.kotlin.gradle.report.data.BuildExecutionDataProcessor
@@ -86,9 +87,11 @@ abstract class BuildMetricsReporterService : BuildService<BuildMetricsReporterSe
     }
 
     companion object {
-        const val name = "Build Metric Service"
         fun registerIfAbsent(project: Project) =
-            project.gradle.sharedServices.registerIfAbsent(name, BuildMetricsReporterService::class.java) {
+            project.gradle.sharedServices.registerIfAbsent(
+                "build_metric_service_${KotlinGradleBuildServices::class.java.classLoader.hashCode()}",
+                BuildMetricsReporterService::class.java
+            ) {
                 val gradle = project.gradle
                 val buildDataProcessors = ArrayList<BuildExecutionDataProcessor>()
 
@@ -121,7 +124,6 @@ abstract class BuildMetricsReporterService : BuildService<BuildMetricsReporterSe
                 it.parameters.startParameters = startParameters
                 it.parameters.buildDataProcessors = buildDataProcessors
             }!!
-
 
     }
 

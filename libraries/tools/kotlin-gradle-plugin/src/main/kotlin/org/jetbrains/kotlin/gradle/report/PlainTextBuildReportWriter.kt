@@ -80,9 +80,14 @@ internal class PlainTextBuildReportWriter(
             fun printBuildTime(buildTime: BuildTime) {
                 if (!visitedBuildTimes.add(buildTime)) return
 
-                val timeMs = collectedBuildTimes[buildTime] ?: return
-                p.println("${buildTime.name}: ${formatTime(timeMs)}")
-                p.withIndent {
+                val timeMs = collectedBuildTimes[buildTime]
+                if (timeMs != null) {
+                    p.println("${buildTime.name}: ${formatTime(timeMs)}")
+                    p.withIndent {
+                        BuildTime.children[buildTime]?.forEach { printBuildTime(it) }
+                    }
+                } else {
+                    //Skip formatting if parent metric does not set
                     BuildTime.children[buildTime]?.forEach { printBuildTime(it) }
                 }
             }
