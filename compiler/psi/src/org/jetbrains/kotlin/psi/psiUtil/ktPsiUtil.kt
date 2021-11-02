@@ -333,7 +333,7 @@ fun PsiElement.isExtensionDeclaration(): Boolean {
     return callable?.receiverTypeReference != null
 }
 
-fun PsiElement.isContextualDeclaration(): Boolean {
+fun KtElement.isContextualDeclaration(): Boolean {
     val contextReceivers = when (this) {
         is KtCallableDeclaration -> contextReceivers
         is KtClassOrObject -> contextReceivers
