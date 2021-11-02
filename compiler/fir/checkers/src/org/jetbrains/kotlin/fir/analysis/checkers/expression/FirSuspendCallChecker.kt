@@ -211,7 +211,8 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker() {
             val variableForInvokeType = variableForInvoke.typeRef.coneType
             if (!variableForInvokeType.isExtensionFunctionType) return Triple(null, null, null)
 
-            // First argument is extension
+            // `a.foo()` is resolved to invokeExtension, so it's been desugared to `foo.invoke(a)`
+            // And we use the first argument (`a`) as an extension receiver
             return Triple(
                 null,
                 argumentList.arguments.getOrNull(0),
