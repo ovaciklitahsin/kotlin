@@ -201,13 +201,27 @@ public class KtNamedFunction extends KtTypeParameterListOwnerStub<KotlinFunction
     @NotNull
     @Override
     public List<KtContextReceiver> getContextReceivers() {
-        KtContextReceiverList list = getContextReceiverList();
-        return list != null ? list.contextReceivers() : Collections.emptyList();
+        KtContextReceiverList contextReceiverList = getStubOrPsiChild(KtStubElementTypes.CONTEXT_RECEIVER_LIST);
+        if (contextReceiverList != null) {
+            return contextReceiverList.contextReceivers();
+        } else {
+            return getContextReceiverTypeRefsByTree();
+        }
     }
 
-    @Nullable
-    private KtContextReceiverList getContextReceiverList() {
-        return getStubOrPsiChild(KtStubElementTypes.CONTEXT_RECEIVER_LIST);
+    @NotNull
+    private List<KtContextReceiver> getContextReceiverTypeRefsByTree() {
+        PsiElement child = getFirstChild();
+        while (child != null) {
+            IElementType tt = child.getNode().getElementType();
+            if (tt == KtTokens.LPAR || tt == KtTokens.COLON) break;
+            if (child instanceof KtContextReceiverList) {
+                return ((KtContextReceiverList) child).contextReceivers();
+            }
+            child = child.getNextSibling();
+        }
+
+        return Collections.emptyList();
     }
 
     @Override
