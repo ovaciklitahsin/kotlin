@@ -6,6 +6,7 @@
 package kotlin.jdk7.test
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
+import kotlin.io.path.deleteRecursively
 import kotlin.test.*
 
 abstract class AbstractPathTest {
@@ -17,7 +18,7 @@ abstract class AbstractPathTest {
     }
 
     fun Path.cleanupRecursively(): Path {
-        cleanUpActions.add(this to { it.toFile().deleteRecursively() })
+        cleanUpActions.add(this to { it.deleteRecursively() })
         return this
     }
 

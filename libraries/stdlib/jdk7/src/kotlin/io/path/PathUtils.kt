@@ -259,6 +259,109 @@ public inline fun Path.copyTo(target: Path, vararg options: CopyOption): Path {
     return Files.copy(this, target, *options)
 }
 
+/** Private exception class, used to terminate recursive copying. */
+private class TerminateException(path: Path) : FileSystemException(path.toString()) {}
+
+/**
+ * Copies this file with all its children to the specified destination [target] path.
+ * If some directories on the way to the destination are missing, then they will be created.
+ *
+ * If this file path points to a single file, then it will be copied to a file with the path [target].
+ * If this file path points to a directory, then its children will be copied to a directory with the path [target].
+ *
+ * If the [target] already exists, it will be deleted before copying when the [overwrite] parameter permits so.
+ *
+ * The operation doesn't preserve copied file attributes such as creation/modification date, permissions, etc.
+ *
+ * If any errors occur during the copying, then further actions will depend on the result of the call
+ * to `onError(Path, IOException)` function, that will be called with arguments,
+ * specifying path of the file that caused the error and the exception itself.
+ * By default this function rethrows exceptions.
+ *
+ * Exceptions that can be passed to the `onError` function:
+ *
+ * - [NoSuchFileException] - if there was an attempt to copy a non-existent file
+ * - [FileAlreadyExistsException] - if there is a conflict
+ * - [AccessDeniedException] - if there was an attempt to open a directory that didn't succeed.
+ * - [IOException] - if some problems occur when copying.
+ *
+ * Note that if this function fails, then partial copying may have taken place.
+ *
+ * @param overwrite `true` if it is allowed to overwrite existing destination files and directories.
+ * @param followLinks `true` to recursively copy the file/directory a symbolic link points, `false` to copy the symbolic link itself.
+ * @return `false` if the copying was terminated, `true` otherwise.
+ */
+public fun Path.copyRecursively(
+    target: Path,
+    overwrite: Boolean = false,
+    vararg options: LinkOption,
+    onError: (Path, IOException) -> OnErrorAction = { _, exception -> throw exception }
+): Boolean {
+    if (!exists()) {
+        val error = NoSuchFileException(this.toString(), target.toString(), "The source file doesn't exist.")
+        return onError(this, error) != OnErrorAction.TERMINATE
+    }
+    try {
+        // We cannot break for loop from inside a lambda, so we have to use an exception here
+        for (src in walkTopDown().onFail { p, e -> if (onError(p, e) == OnErrorAction.TERMINATE) throw TerminateException(p) }) {
+            if (!src.exists()) {
+                val error = NoSuchFileException(src.toString(), target.toString(), "The source file doesn't exist.")
+                if (onError(src, error) == OnErrorAction.TERMINATE)
+                    return false
+            } else {
+                val relPath = src.relativeTo(this)
+                val dstFile = target.resolve(relPath)
+                if (dstFile.exists() && !(src.isDirectory(*options) && dstFile.isDirectory(*options))) {
+                    val stillExists = if (!overwrite) true else {
+                        if (dstFile.isDirectory(*options))
+                            !dstFile.deleteRecursively()
+                        else {
+                            dstFile.deleteIfExists() // what if no permission
+                            false
+                        }
+                    }
+
+                    if (stillExists) {
+                        val error = FileAlreadyExistsException(src.toString(), dstFile.toString(), "The destination file already exists.")
+                        if (onError(dstFile, error) == OnErrorAction.TERMINATE)
+                            return false
+
+                        continue
+                    }
+                }
+
+                if (src.isDirectory(*options)) {
+                    dstFile.createDirectories()
+                } else {
+                    if (src.copyTo(dstFile, overwrite).fileSize() != src.fileSize()) {
+                        val error = IOException("Source file wasn't copied completely, length of destination file differs.")
+                        if (onError(src, error) == OnErrorAction.TERMINATE)
+                            return false
+                    }
+                }
+            }
+        }
+        return true
+    } catch (e: TerminateException) {
+        return false
+    }
+}
+
+/**
+ * Delete this file with all its children.
+ * Note that if this operation fails then partial deletion may have taken place.
+ *
+ * @throws IOException if an I/O error occurs
+ */
+public fun Path.deleteRecursively(vararg options: LinkOption): Boolean = walkBottomUp(*options).fold(true) { res, it ->
+    try {
+        it.deleteIfExists()
+    } catch (_: DirectoryNotEmptyException) {
+        return@fold false
+    }
+    return@fold res
+}
+
 /**
  * Checks if the file located by this path exists.
  *

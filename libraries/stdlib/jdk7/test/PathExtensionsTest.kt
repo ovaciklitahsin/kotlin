@@ -163,6 +163,138 @@ class PathExtensionsTest : AbstractPathTest() {
         assertEquals(srcFile.readText(), dstFile.readText())
     }
 
+
+    @Test
+    fun deleteRecursively() {
+        val dir = createTempDirectory()
+        dir.deleteExisting()
+        dir.createDirectory()
+        val subDir = dir.resolve("subdir")
+        subDir.createDirectory()
+        dir.resolve("test1.txt").createFile()
+        subDir.resolve("test2.txt").createFile()
+
+        dir.deleteRecursively()
+        assertFalse(dir.exists())
+        dir.deleteRecursively() // possible to delete recursively a non-existing directory
+    }
+
+    @Test
+    fun deleteRecursivelyWithFail() {
+        val basedir = PathTreeWalkTest.createTestFiles().cleanupRecursively()
+        val restricted1 = basedir.resolve("1").toFile()
+        val restricted2 = basedir.resolve("7.txt").toFile()
+        try {
+            if (restricted1.setReadable(false) && restricted2.setReadable(false)) {
+                assertFalse(basedir.deleteRecursively(), "Expected incomplete recursive deletion.")
+                restricted1.setReadable(true)
+                restricted2.setReadable(true)
+                assertEquals(6, basedir.walkTopDown().count())
+            }
+        } finally {
+            restricted1.setReadable(true)
+            restricted2.setReadable(true)
+        }
+    }
+
+    private fun compareDirectories(src: Path, dst: Path) {
+        for (srcFile in src.walkTopDown()) {
+            val dstFile = dst.resolve(srcFile.relativeTo(src))
+            compareFiles(srcFile, dstFile)
+        }
+    }
+
+    @Test
+    fun copyRecursively() {
+        val src = createTempDirectory().cleanupRecursively()
+        val dst = createTempDirectory().cleanupRecursively()
+        dst.deleteExisting()
+        fun check() = compareDirectories(src, dst)
+
+        val subDir1 = createTempDirectory(prefix = "d1_", directory = src)
+        val subDir2 = createTempDirectory(prefix = "d2_", directory = src)
+        createTempDirectory(prefix = "d1_", directory = subDir1)
+        val file1 = createTempFile(prefix = "f1_", directory = src)
+        val file2 = createTempFile(prefix = "f2_", directory = subDir1)
+        file1.writeText("hello")
+        file2.writeText("wazzup")
+        createTempDirectory(prefix = "d1_", directory = subDir2)
+
+        assertTrue(src.copyRecursively(dst))
+        check()
+
+        assertFailsWith(java.nio.file.FileAlreadyExistsException::class) {
+            src.copyRecursively(dst)
+        }
+
+        var conflicts = 0
+        src.copyRecursively(dst) { _: Path, e: IOException ->
+            if (e is java.nio.file.FileAlreadyExistsException) {
+                conflicts++
+                OnErrorAction.SKIP
+            } else {
+                throw e
+            }
+        }
+        assertEquals(2, conflicts)
+
+        if (subDir1.toFile().setReadable(false)) {
+            try {
+                dst.deleteRecursively()
+                var caught = false
+                assertTrue(src.copyRecursively(dst) { _: Path, e: IOException ->
+                    if (e is java.nio.file.AccessDeniedException) {
+                        caught = true
+                        OnErrorAction.SKIP
+                    } else {
+                        throw e
+                    }
+                })
+                assertTrue(caught)
+                check()
+            } finally {
+                subDir1.toFile().setReadable(true)
+            }
+        }
+
+        src.deleteRecursively()
+        dst.deleteRecursively()
+        assertFailsWith(java.nio.file.NoSuchFileException::class) {
+            src.copyRecursively(dst)
+        }
+
+        assertFalse(src.copyRecursively(dst) { _, _ -> OnErrorAction.TERMINATE })
+    }
+
+    @Test
+    fun copyRecursivelyWithOverwrite() {
+        val src = createTempDirectory().cleanupRecursively()
+        val dst = createTempDirectory().cleanupRecursively()
+        fun check() = compareDirectories(src, dst)
+
+        val srcFile = src.resolve("test")
+        val dstFile = dst.resolve("test")
+        srcFile.writeText("text1")
+
+        src.copyRecursively(dst)
+
+        srcFile.writeText("text1 modified")
+        src.copyRecursively(dst, overwrite = true)
+        check()
+
+        dstFile.deleteExisting()
+        dstFile.createDirectory()
+        dstFile.resolve("subFile").writeText("subfile")
+        src.copyRecursively(dst, overwrite = true)
+        check()
+
+        srcFile.deleteExisting()
+        srcFile.createDirectory()
+        srcFile.resolve("subFile").writeText("text2")
+        src.copyRecursively(dst, overwrite = true)
+        check()
+    }
+
     @Test
     fun moveTo() {
         val root = createTempDirectory("moveTo-root").cleanupRecursively()
