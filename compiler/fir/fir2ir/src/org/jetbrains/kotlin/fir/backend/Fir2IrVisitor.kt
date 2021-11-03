@@ -5,9 +5,7 @@
 
 package org.jetbrains.kotlin.fir.backend
 
-import org.jetbrains.kotlin.KtFakeSourceElementKind
-import org.jetbrains.kotlin.KtNodeTypes
-import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -48,7 +46,6 @@ import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
-import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -276,7 +273,7 @@ class Fir2IrVisitor(
         val initializer = variable.initializer
         val isNextVariable = initializer is FirFunctionCall &&
                 initializer.resolvedNamedFunctionSymbol()?.callableId?.isIteratorNext() == true &&
-                variable.source.psi?.parent is KtForExpression
+                variable.source?.isChildOfForLoop == true
         val irVariable = declarationStorage.createIrVariable(
             variable, conversionScope.parentFromStack(),
             if (isNextVariable) {
@@ -1128,3 +1125,8 @@ class Fir2IrVisitor(
         }
     }
 }
+
+val KtSourceElement.isChildOfForLoop: Boolean
+    get() =
+        if (this is KtPsiSourceElement) psi.parent is KtForExpression
+        else treeStructure.getParent(lighterASTNode)?.tokenType == KtNodeTypes.FOR
