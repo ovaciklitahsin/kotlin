@@ -71,7 +71,7 @@ class Fir2IrConverter(
     fun registerFileAndClasses(file: FirFile, moduleFragment: IrModuleFragment) {
         val fileEntry = when (file.origin) {
             FirDeclarationOrigin.Source ->
-                file.psi?.let { PsiIrFileEntry(it as KtFile) } ?: NaiveSourceBasedFileEntryImpl(file.path ?: file.name)
+                file.psi?.let { PsiIrFileEntry(it as KtFile) } ?: NaiveSourceBasedFileEntryImpl(file.path ?: file.name, intArrayOf(0))
             FirDeclarationOrigin.Synthetic -> object : IrFileEntry {
                 override val name = file.name
                 override val maxOffset = UNDEFINED_OFFSET
