@@ -10709,6 +10709,12 @@ public class FirOldFrontendDiagnosticsTestGenerated extends AbstractFirDiagnosti
                 }
 
                 @Test
+                @TestMetadata("unsupported.kt")
+                public void testUnsupported() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/extensions/contextReceivers/unsupported.kt");
+                }
+
+                @Test
                 @TestMetadata("withExplicitReceiver.kt")
                 public void testWithExplicitReceiver() throws Exception {
                     runTest("compiler/testData/diagnostics/tests/extensions/contextReceivers/withExplicitReceiver.kt");
