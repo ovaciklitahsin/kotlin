@@ -100,7 +100,7 @@ class PostponedArgumentsAnalyzer(
             expectedOrActualType(expectedContextReceivers?.getOrNull(i), contextReceiver)
         }
 
-        var expectedParametersToMatchAgainst = when {
+        val expectedParametersToMatchAgainst = when {
             receiver == null && expectedReceiver != null && expectedParameters != null -> listOf(expectedReceiver) + expectedParameters
             receiver == null && expectedReceiver != null -> listOf(expectedReceiver)
             receiver != null && expectedReceiver == null -> expectedParameters?.drop(1)
