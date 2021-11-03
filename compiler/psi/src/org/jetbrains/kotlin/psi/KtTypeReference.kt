@@ -57,5 +57,5 @@ class KtTypeReference : KtModifierListOwnerStub<KotlinPlaceHolderStub<KtTypeRefe
         return findChildByType<PsiElement>(KtTokens.LPAR) != null && findChildByType<PsiElement>(KtTokens.RPAR) != null
     }
 
-    fun nameForReceiverLabel() = if (typeElement is KtUserType) (typeElement as KtUserType).referencedName else null
+    fun nameForReceiverLabel() = (typeElement as? KtUserType)?.referencedName
 }
