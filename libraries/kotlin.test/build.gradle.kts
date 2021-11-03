@@ -274,7 +274,7 @@ dependencies {
 }
 
 artifacts {
-    val wasmJar = tasks.getByPath(":kotlin-test:kotlin-test-wasm:wasmJar")
+    val wasmJar = tasks.getByPath(":kotlin-test:kotlin-test-wasm:libraryJarWithIr")
     add(wasmApi.name, wasmJar)
     add(wasmRuntime.name, wasmJar)
 }
@@ -357,6 +357,12 @@ publishing {
             from(jsComponent)
             artifact(tasks.getByPath(":kotlin-test:kotlin-test-js:sourcesJar") as Jar)
             configureKotlinPomAttributes(project, "Kotlin Test for JS")
+        }
+        create("wasm", MavenPublication::class) {
+            artifactId = "kotlin-test-wasm"
+            from(wasmComponent)
+            artifact(tasks.getByPath(":kotlin-test:kotlin-test-wasm:sourcesJar") as Jar)
+            configureKotlinPomAttributes(project, "Kotlin Test for WASM")
         }
         create("common", MavenPublication::class) {
             artifactId = "kotlin-test-common"

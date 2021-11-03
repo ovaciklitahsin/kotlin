@@ -50,3 +50,22 @@ tasks.named("compileKotlinWasm") {
     (this as KotlinCompile<*>).kotlinOptions.freeCompilerArgs += "-Xir-module-name=kotlin-test"
     dependsOn(commonMainSources)
 }
+
+tasks.register<Jar>("libraryJarWithIr") {
+    dependsOn(":kotlin-test:kotlin-test-wasm:compileKotlinWasm")
+
+    destinationDirectory.set(layout.buildDirectory.dir("libs"))
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+
+    from {
+        val irKlib = tasks.getByPath(":kotlin-test:kotlin-test-wasm:compileKotlinWasm")
+        fileTree(irKlib.outputs.files.first().path)
+    }
+}
+
+tasks.register<Jar>("sourcesJar") {
+    dependsOn(commonMainSources)
+    archiveClassifier.set("sources")
+    from(kotlin.sourceSets["commonMain"].kotlin)
+    from(kotlin.sourceSets["wasmMain"].kotlin)
+}
