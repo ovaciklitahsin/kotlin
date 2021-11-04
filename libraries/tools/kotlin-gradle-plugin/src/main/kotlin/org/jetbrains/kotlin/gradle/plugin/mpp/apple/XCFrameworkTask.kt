@@ -241,7 +241,7 @@ abstract class XCFrameworkTask : DefaultTask() {
             buildType: NativeBuildType,
             appleTarget: AppleTarget? = null
         ) = project.buildDir
-            .resolve("fat-framework")
+            .resolve("out/fatframework")
             .resolve(buildType.getName())
             .resolve(xcFrameworkName)
             .resolveIfNotNull(appleTarget?.targetName)
