@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.gradle.targets.native.tasks.artifact
 import groovy.lang.Closure
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.FileCollection
+import org.gradle.api.internal.BuildType
 import org.gradle.api.tasks.*
 import org.jetbrains.kotlin.compilerRunner.KotlinNativeCompilerRunner
 import org.jetbrains.kotlin.gradle.dsl.KotlinCommonToolOptions
@@ -36,7 +37,7 @@ open class KotlinNativeLinkArtifactTask @Inject constructor(
         get() {
             val kind = outputKind.visibleName
             val target = konanTarget.visibleName
-            val type = if (debuggable) "Debug" else "Release"
+            val type = if (debuggable) "debug" else "release"
             return project.buildDir.resolve("out/$kind/$target/$type")
         }
 
