@@ -143,6 +143,58 @@ public class IrBlackBoxModernJdkCodegenTestGenerated extends AbstractIrBlackBoxC
         public void testVarHandle() throws Exception {
             runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/varHandle.kt");
         }
+
+        @Nested
+        @TestMetadata("compiler/testData/codegen/boxModernJdk/testsWithJava11/release")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Release {
+            @Test
+            public void testAllFilesPresentInRelease() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxModernJdk/testsWithJava11/release"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+            }
+
+            @Test
+            @TestMetadata("reflective.kt")
+            public void testReflective() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/release/reflective.kt");
+            }
+
+            @Test
+            @TestMetadata("reflective_10.kt")
+            public void testReflective_10() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/release/reflective_10.kt");
+            }
+
+            @Test
+            @TestMetadata("reflective_11.kt")
+            public void testReflective_11() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/release/reflective_11.kt");
+            }
+
+            @Test
+            @TestMetadata("reflective_6.kt")
+            public void testReflective_6() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/release/reflective_6.kt");
+            }
+
+            @Test
+            @TestMetadata("reflective_7.kt")
+            public void testReflective_7() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/release/reflective_7.kt");
+            }
+
+            @Test
+            @TestMetadata("reflective_8.kt")
+            public void testReflective_8() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/release/reflective_8.kt");
+            }
+
+            @Test
+            @TestMetadata("reflective_9.kt")
+            public void testReflective_9() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava11/release/reflective_9.kt");
+            }
+        }
     }
 
     @Nested
@@ -222,6 +274,82 @@ public class IrBlackBoxModernJdkCodegenTestGenerated extends AbstractIrBlackBoxC
             @TestMetadata("recordPropertyAccess.kt")
             public void testRecordPropertyAccess() throws Exception {
                 runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/records/recordPropertyAccess.kt");
+            }
+        }
+
+        @Nested
+        @TestMetadata("compiler/testData/codegen/boxModernJdk/testsWithJava17/release")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Release {
+            @Test
+            public void testAllFilesPresentInRelease() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxModernJdk/testsWithJava17/release"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+            }
+
+            @Test
+            @TestMetadata("constable.kt")
+            public void testConstable() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_10.kt")
+            public void testConstable_10() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_10.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_11.kt")
+            public void testConstable_11() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_11.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_12.kt")
+            public void testConstable_12() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_12.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_13.kt")
+            public void testConstable_13() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_13.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_14.kt")
+            public void testConstable_14() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_14.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_15.kt")
+            public void testConstable_15() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_15.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_16.kt")
+            public void testConstable_16() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_16.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_17.kt")
+            public void testConstable_17() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_17.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_8.kt")
+            public void testConstable_8() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_8.kt");
+            }
+
+            @Test
+            @TestMetadata("constable_9.kt")
+            public void testConstable_9() throws Exception {
+                runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/release/constable_9.kt");
             }
         }
 
