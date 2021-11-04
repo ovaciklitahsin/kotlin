@@ -83,7 +83,7 @@ private class KotlinNativeOutputFatFramework(
             return
         }
 
-        val parentTask = project.registerTask<Task>(lowerCamelCaseName("assemble", name, "FatFramework")) {
+        val parentTask = project.registerTask<Task>(lowerCamelCaseName("assemble", "FatFramework", name)) {
             it.group = "build"
             it.description = "Assemble all types of registered '$name' FatFramework"
         }
@@ -134,7 +134,7 @@ private class KotlinNativeOutputXCFramework(
             return
         }
 
-        val parentTask = project.registerTask<Task>(lowerCamelCaseName("assemble", name, "XCFramework")) {
+        val parentTask = project.registerTask<Task>(lowerCamelCaseName("assemble", "XCFramework", name)) {
             it.group = "build"
             it.description = "Assemble all types of registered '$name' XCFramework"
         }
