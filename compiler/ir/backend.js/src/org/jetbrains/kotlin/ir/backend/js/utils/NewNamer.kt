@@ -92,7 +92,7 @@ class NewNamerImpl(
 
     override fun getNameForMemberFunction(function: IrSimpleFunction): JsName {
         require(function.dispatchReceiverParameter != null)
-        val name = jsFunctionSignature(function, context)
+        val name = jsFunctionSignature(function)
         return name.toJsName()
     }
 

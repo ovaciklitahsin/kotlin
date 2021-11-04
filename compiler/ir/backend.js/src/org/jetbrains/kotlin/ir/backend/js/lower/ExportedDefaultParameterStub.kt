@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.utils.JsAnnotations
 import org.jetbrains.kotlin.ir.backend.js.utils.hasStableJsName
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.builders.declarations.addFunction
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
@@ -32,7 +31,6 @@ private fun IrConstructorCall.isAnnotation(name: FqName): Boolean {
 }
 
 class ExportedDefaultParameterStub(val context: JsIrBackendContext) : DeclarationTransformer {
-
     private fun IrBuilderWithScope.createDefaultResolutionExpression(
         fromParameter: IrValueParameter,
         toParameter: IrValueParameter,

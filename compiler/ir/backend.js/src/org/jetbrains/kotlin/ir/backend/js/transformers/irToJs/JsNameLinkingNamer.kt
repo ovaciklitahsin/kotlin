@@ -69,7 +69,7 @@ class JsNameLinkingNamer(private val context: JsIrBackendContext) : IrNamerBase(
 
     override fun getNameForMemberFunction(function: IrSimpleFunction): JsName {
         require(function.dispatchReceiverParameter != null)
-        val signature = jsFunctionSignature(function, context)
+        val signature = jsFunctionSignature(function)
         return signature.toJsName()
     }
 
@@ -107,7 +107,7 @@ class JsNameLinkingNamer(private val context: JsIrBackendContext) : IrNamerBase(
                             nameCnt[safeName] = nameCnt.getOrDefault(safeName, 0) + 1
                         }
                         it is IrFunction && it.dispatchReceiverParameter != null -> {
-                            nameCnt[jsFunctionSignature(it, context)] = 1 // avoid clashes with member functions
+                            nameCnt[jsFunctionSignature(it)] = 1 // avoid clashes with member functions
                         }
                     }
                 }

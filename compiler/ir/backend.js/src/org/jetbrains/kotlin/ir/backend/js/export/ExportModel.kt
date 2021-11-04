@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir.backend.js.export
 
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 
@@ -53,25 +54,45 @@ class ExportedProperty(
     val isStatic: Boolean = false,
     val isAbstract: Boolean,
     val isProtected: Boolean,
-    val irGetter: IrFunction?,
+    val ir: IrProperty?,
     val irSetter: IrFunction?,
+    val irGetter: IrFunction?,
 ) : ExportedDeclaration()
+
+interface ExportedClassLike {
+    val name: String
+    val superClass: ExportedType?
+    val superInterfaces: List<ExportedType>
+    val members: List<ExportedDeclaration>
+    val nestedClasses: List<ExportedClass>
+    val ir: IrClass
+}
+
+class ExportedObject(
+    override val name: String,
+    override val superClass: ExportedType? = null,
+    override val superInterfaces: List<ExportedType> = emptyList(),
+    override val members: List<ExportedDeclaration>,
+    override val nestedClasses: List<ExportedClass>,
+    override val ir: IrClass,
+    val irGetter: IrFunction,
+) : ExportedDeclaration(), ExportedClassLike
 
 
 // TODO: Cover all cases with frontend and disable error declarations
 class ErrorDeclaration(val message: String) : ExportedDeclaration()
 
 data class ExportedClass(
-    val name: String,
+    override val name: String,
     val isInterface: Boolean = false,
     val isAbstract: Boolean = false,
-    val superClass: ExportedType? = null,
-    val superInterfaces: List<ExportedType> = emptyList(),
+    override val superClass: ExportedType? = null,
+    override val superInterfaces: List<ExportedType> = emptyList(),
     val typeParameters: List<String>,
-    val members: List<ExportedDeclaration>,
-    val nestedClasses: List<ExportedClass>,
-    val ir: IrClass
-) : ExportedDeclaration()
+    override val members: List<ExportedDeclaration>,
+    override val nestedClasses: List<ExportedClass>,
+    override val ir: IrClass
+) : ExportedDeclaration(), ExportedClassLike
 
 class ExportedParameter(
     val name: String,

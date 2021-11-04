@@ -13,15 +13,21 @@ import org.jetbrains.kotlin.js.backend.ast.JsName
 
 class IrNamerImpl(
     private val newNameTables: NameTables,
-    private val context: JsIrBackendContext,
+    private val context: JsIrBackendContext
 ) : IrNamerBase() {
     override fun getNameForStaticDeclaration(declaration: IrDeclarationWithName): JsName =
         newNameTables.getNameForStaticDeclaration(declaration).toJsName()
 
     override fun getNameForMemberFunction(function: IrSimpleFunction): JsName {
         require(function.dispatchReceiverParameter != null)
-        val signature = jsFunctionSignature(function, context)
-        return signature.toJsName()
+
+        val name = if (function.hasStableJsName(context)) {
+            function.getJsNameOrKotlinName().asString()
+        } else {
+            jsFunctionSignature(function)
+        }
+
+        return name.toJsName()
     }
 
     override fun getNameForMemberField(field: IrField): JsName {

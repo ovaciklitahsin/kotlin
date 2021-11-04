@@ -125,7 +125,7 @@ class IrModuleToJsTransformerTmp(
         val internalModuleName = JsName("_", false)
         val globalNames = NameTable<String>(namer.globalNames)
         val exportStatements =
-            ExportModelToJsStatements(staticContext, { globalNames.declareFreshName(it, it) }).generateModuleExport(
+            ExportModelToJsStatements(staticContext, staticContext.backendContext, { globalNames.declareFreshName(it, it) }).generateModuleExport(
                 ExportedModule(mainModuleName, moduleKind, exports),
                 internalModuleName,
             )

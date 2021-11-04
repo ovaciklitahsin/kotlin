@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.isAny
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.js.backend.ast.*
-import org.jetbrains.kotlin.js.common.isValidES5Identifier
 import org.jetbrains.kotlin.utils.addIfNotNull
 
 class JsClassGenerator(private val irClass: IrClass, val context: JsGenerationContext) {
@@ -79,13 +78,11 @@ class JsClassGenerator(private val irClass: IrClass, val context: JsGenerationCo
                     properties.addIfNotNull(declaration.correspondingPropertySymbol?.owner)
 
                     if (es6mode) {
-                        val (memberRef, function) = generateMemberFunction(declaration)
+                        val (_, function) = generateMemberFunction(declaration)
                         function?.let { jsClass.members += it }
-                        declaration.generateAssignmentIfMangled(memberRef)
                     } else {
                         val (memberRef, function) = generateMemberFunction(declaration)
                         function?.let { classBlock.statements += jsAssignment(memberRef, it.apply { name = null }).makeStmt() }
-                        declaration.generateAssignmentIfMangled(memberRef)
                     }
                 }
                 is IrClass -> {
@@ -101,136 +98,8 @@ class JsClassGenerator(private val irClass: IrClass, val context: JsGenerationCo
 
         classBlock.statements += generateClassMetadata()
 
-        if (!irClass.isInterface && !irClass.isEnumEntry) {
-            for (property in properties) {
-                if (property.getter?.extensionReceiverParameter != null || property.setter?.extensionReceiverParameter != null)
-                    continue
-
-                if (!property.visibility.isPublicAPI)
-                    continue
-
-                if (property.isFakeOverride && !property.isEnumFakeOverriddenDeclaration(context.staticContext.backendContext))
-                    continue
-
-                fun IrSimpleFunction.propertyAccessorForwarder(
-                    description: String,
-                    callActualAccessor: (JsNameRef) -> JsStatement
-                ): JsFunction? =
-                    when (visibility) {
-                        DescriptorVisibilities.PRIVATE -> null
-                        else -> JsFunction(
-                            emptyScope,
-                            JsBlock(callActualAccessor(JsNameRef(context.getNameForMemberFunction(this), JsThisRef()))),
-                            description
-                        )
-                    }
-
-                fun IrSimpleFunction.accessorRef(): JsNameRef? =
-                    when (visibility) {
-                        DescriptorVisibilities.PRIVATE -> null
-                        else -> JsNameRef(
-                            context.getNameForMemberFunction(this),
-                            classPrototypeRef
-                        )
-                    }
-
-                // Don't generate `defineProperty` if the property overrides a property from an exported class,
-                // because we've already generated `defineProperty` for the base class property.
-                // In other words, we only want to generate `defineProperty` once for each property.
-                // The exception is case when we override val with var,
-                // so we need regenerate `defineProperty` with setter.
-                val noOverriddenGetter = property.getter?.overriddenSymbols?.isEmpty() == true
-
-                val overriddenExportedGetter = (property.getter?.overriddenSymbols?.isNotEmpty() == true &&
-                        property.getter?.isOverriddenExported(context.staticContext.backendContext) == true)
-
-                val noOverriddenExportedSetter = property.setter?.isOverriddenExported(context.staticContext.backendContext) == false
-
-                val needsOverride = (overriddenExportedGetter && noOverriddenExportedSetter) ||
-                        property.isEnumFakeOverriddenDeclaration(context.staticContext.backendContext)
-
-                if (irClass.isExported(context.staticContext.backendContext) &&
-                    (noOverriddenGetter || needsOverride) ||
-                    property.getter?.overridesExternal() == true ||
-                    property.getJsName() != null
-                ) {
-
-                    // Use "direct dispatch" for final properties, i. e. instead of this:
-                    //     Object.defineProperty(Foo.prototype, 'prop', {
-                    //         configurable: true,
-                    //         get: function() { return this._get_prop__0_k$(); },
-                    //         set: function(v) { this._set_prop__a4enbm_k$(v); }
-                    //     });
-                    // emit this:
-                    //     Object.defineProperty(Foo.prototype, 'prop', {
-                    //         configurable: true,
-                    //         get: Foo.prototype._get_prop__0_k$,
-                    //         set: Foo.prototype._set_prop__a4enbm_k$
-                    //     });
-
-                    val getterForwarder = if (property.getter?.modality == Modality.FINAL) property.getter?.accessorRef()
-                    else {
-                        property.getter?.propertyAccessorForwarder("getter forwarder") { getterRef ->
-                            JsReturn(
-                                JsInvocation(
-                                    getterRef
-                                )
-                            )
-                        }
-                    }
-
-                    val setterForwarder = if (property.setter?.modality == Modality.FINAL) property.setter?.accessorRef()
-                    else {
-                        property.setter?.let {
-                            val setterArgName = JsName("value", false)
-                            it.propertyAccessorForwarder("setter forwarder") { setterRef ->
-                                JsInvocation(
-                                    setterRef,
-                                    JsNameRef(setterArgName)
-                                ).makeStmt()
-                            }?.apply {
-                                parameters.add(JsParameter(setterArgName))
-                            }
-                        }
-                    }
-
-                    classBlock.statements += JsExpressionStatement(
-                        defineProperty(
-                            classPrototypeRef,
-                            context.getNameForProperty(property).ident,
-                            getter = getterForwarder,
-                            setter = setterForwarder
-                        )
-                    )
-                }
-            }
-        }
         context.staticContext.classModels[irClass.symbol] = classModel
         return classBlock
-    }
-
-    private fun IrSimpleFunction.generateAssignmentIfMangled(memberRef: JsExpression) {
-        if (
-            irClass.isExported(context.staticContext.backendContext) &&
-            visibility.isPublicAPI && hasMangledName() &&
-            correspondingPropertySymbol == null
-        ) {
-            classBlock.statements += jsAssignment(prototypeAccessRef(), memberRef).makeStmt()
-        }
-    }
-
-    private fun IrSimpleFunction.hasMangledName(): Boolean {
-        return getJsName() == null && !name.asString().isValidES5Identifier()
-    }
-
-    private fun IrSimpleFunction.prototypeAccessRef(): JsExpression {
-        return jsElementAccess(name.asString(), classPrototypeRef)
-    }
-
-    private fun IrSimpleFunction.overridesExternal(): Boolean {
-        if (this.isEffectivelyExternal()) return true
-
-        return this.overriddenSymbols.any { it.owner.overridesExternal() }
     }
 
     private fun IrClass.shouldCopyFrom(): Boolean {

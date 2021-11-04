@@ -135,7 +135,7 @@ class IrModuleToJsTransformer(
     ): CompilationOutputs {
 
         val nameGenerator = refInfo.withReferenceTracking(
-            IrNamerImpl(newNameTables = namer, backendContext),
+            IrNamerImpl(namer, backendContext),
             modules
         )
         val staticContext = JsStaticContext(
@@ -155,7 +155,7 @@ class IrModuleToJsTransformer(
         val internalModuleName = JsName("_", false)
         val globalThisDeclaration = jsGlobalThisPolyfill();
         val globalNames = NameTable<String>(namer.globalNames)
-        val exportStatements = ExportModelToJsStatements(nameGenerator) { globalNames.declareFreshName(it, it) }
+        val exportStatements = ExportModelToJsStatements(nameGenerator, staticContext.backendContext) { globalNames.declareFreshName(it, it) }
             .generateModuleExport(exportedModule, internalModuleName)
 
         val (crossModuleImports, importedKotlinModules) = generateCrossModuleImports(nameGenerator, modules, dependencies, { JsName(sanitizeName(it), false) })

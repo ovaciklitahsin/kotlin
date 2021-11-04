@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.ir.backend.js.export
 
+import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.backend.js.utils.getJsNameOrKotlinName
 import org.jetbrains.kotlin.ir.backend.js.utils.sanitizeName
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -110,6 +111,30 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
         if (!isMember && containsUnresolvedChar) "" else "$prefix$visibility$possibleStatic$keyword$memberName: ${type.toTypeScript(indent)};"
     }
 
+    is ExportedObject -> {
+        var t: ExportedType = ExportedType.InlineInterfaceType(members + nestedClasses)
+        if (superClass != null)
+            t = ExportedType.IntersectionType(t, superClass)
+
+        for (superInterface in superInterfaces) {
+            t = ExportedType.IntersectionType(t, superInterface)
+        }
+
+        ExportedProperty(
+            name = name,
+            type = t,
+            mutable = false,
+            isMember = ir.parent is IrClass,
+            isStatic = !ir.isInner,
+            isAbstract = false,
+            isProtected = ir.visibility == DescriptorVisibilities.PROTECTED,
+            irGetter = irGetter,
+            irSetter = null,
+            ir = null
+        ).toTypeScript(indent, "")
+            .trimStart()
+    }
+
     is ExportedClass -> {
         val keyword = if (isInterface) "interface" else "class"
         val superInterfacesKeyword = if (isInterface) "extends" else "implements"
@@ -151,7 +176,8 @@ fun ExportedDeclaration.toTypeScript(indent: String, prefix: String = ""): Strin
 
         val nestedClasses = nonInnerClasses + innerClasses.map { it.withProtectedConstructors() }
         val klassExport = "$prefix$modifiers$keyword $name$renderedTypeParameters$superClassClause$superInterfacesClause {\n$bodyString}"
-        val staticsExport = if (nestedClasses.isNotEmpty()) "\n" + ExportedNamespace(name, nestedClasses).toTypeScript(indent, prefix) else ""
+        val staticsExport =
+            if (nestedClasses.isNotEmpty()) "\n" + ExportedNamespace(name, nestedClasses).toTypeScript(indent, prefix) else ""
 
         if (name.isValidES5Identifier()) klassExport + staticsExport else ""
     }
@@ -199,6 +225,7 @@ fun ExportedClass.toReadonlyProperty(): ExportedProperty {
         isStatic = false,
         isAbstract = false,
         isProtected = false,
+        ir = null,
         irGetter = null,
         irSetter = null
     )
