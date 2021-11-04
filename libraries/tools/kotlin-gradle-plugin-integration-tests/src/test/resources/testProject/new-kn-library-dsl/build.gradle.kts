@@ -16,14 +16,14 @@ plugins {
 
 //:shared:assembleDebugSharedMylibLinuxX64
 nativeLibrary("mylib") {
-    targets = listOf(LINUX_X64)
+    targets = setOf(LINUX_X64)
     artifact = library
     from(project(":shared"))
 }
 
 //:shared:assembleDebugStaticMyslibLinuxX64
 nativeLibrary("myslib") {
-    targets = listOf(LINUX_X64)
+    targets = setOf(LINUX_X64)
     artifact = library
     modes = setOf(DEBUG)
     isStatic = true

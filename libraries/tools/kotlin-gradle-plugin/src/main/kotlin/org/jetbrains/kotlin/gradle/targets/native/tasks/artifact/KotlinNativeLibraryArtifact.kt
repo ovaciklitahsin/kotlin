@@ -52,7 +52,7 @@ interface KotlinNativeLibraryArtifact {
 }
 
 class KotlinNativeLibraryConfig {
-    var targets: List<KonanTarget> = emptyList()
+    var targets: Set<KonanTarget> = emptySet()
     var modes: Set<NativeBuildType> = NativeBuildType.DEFAULT_BUILD_TYPES
     var isStatic: Boolean = false
     var linkerOptions: List<String> = emptyList()
