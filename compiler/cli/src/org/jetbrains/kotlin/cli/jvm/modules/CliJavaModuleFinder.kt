@@ -32,7 +32,8 @@ class CliJavaModuleFinder(
     jdkRootFile: VirtualFile?,
     jrtFileSystemRoot: VirtualFile?,
     private val javaFileManager: KotlinCliJavaFileManager,
-    project: Project
+    project: Project,
+    private val releaseFlagValue: Int
 ) : JavaModuleFinder {
     private val modulesRoot = jrtFileSystemRoot?.findChild("modules")
     private val ctSymFile = jdkRootFile?.findChild("lib")?.findChild("ct.sym")
@@ -43,9 +44,10 @@ class CliJavaModuleFinder(
     public val compilationJdkVersion by lazy {
         //TODO: add test with -jdk-home
         //JDK ct.sym contains folder with current JDK code which contains 'system-modules' file
-        listFoldersInCtSym()?.children?.maxOf {
+        ctSymRootFolder()?.children?.maxOf {
             if (it.name == "META-INF") -1
             else it.name.substringBefore("-modules").toCharArray().maxOf { char ->
+
                 when (char) {
                     in '0'..'9' -> char.toInt() - '0'.toInt()
                     in 'A'..'Z' -> char.toInt() - 'A'.toInt() + 10
@@ -55,6 +57,12 @@ class CliJavaModuleFinder(
         } ?: -1
     }
 
+    private val isJDK12OrLater
+        get() = compilationJdkVersion >= 12
+
+    private val useLastJdkApi: Boolean
+        get() = releaseFlagValue == 0 || releaseFlagValue == compilationJdkVersion
+
     fun addUserModule(module: JavaModule) {
         userModules.putIfAbsent(module.name, module)
     }
@@ -62,16 +70,31 @@ class CliJavaModuleFinder(
     val allObservableModules: Sequence<JavaModule>
         get() = systemModules + userModules.values
 
+    val ctSymModules by lazy {
+        collectModuleRoots(releaseFlagValue)
+    }
+
     val systemModules: Sequence<JavaModule.Explicit>
-        get() = modulesRoot?.children.orEmpty().asSequence().mapNotNull(this::findSystemModule)
+        get() = if (useLastJdkApi || isJDK12OrLater) modulesRoot?.children.orEmpty().asSequence().mapNotNull(this::findSystemModule) else
+            ctSymModules.values.asSequence().mapNotNull { findSystemModule(it.single(), true) }
 
     override fun findModule(name: String): JavaModule? =
-        modulesRoot?.findChild(name)?.let(this::findSystemModule) ?: userModules[name]
+        (if (useLastJdkApi || isJDK12OrLater)
+            modulesRoot?.findChild(name)?.let(this::findSystemModule) else ctSymModules[name]?.let { findSystemModule(it.single(), true) })
+            ?: userModules[name]
 
-    private fun findSystemModule(moduleRoot: VirtualFile): JavaModule.Explicit? {
-        val file = moduleRoot.findChild(PsiJavaModule.MODULE_INFO_CLS_FILE) ?: return null
+    private fun findSystemModule(moduleRoot: VirtualFile, useSig: Boolean = false): JavaModule.Explicit? {
+        val file = moduleRoot.findChild(if (useSig) PsiJavaModule.MODULE_INFO_CLASS + ".sig" else PsiJavaModule.MODULE_INFO_CLS_FILE) ?: return null
         val moduleInfo = JavaModuleInfo.read(file, javaFileManager, allScope) ?: return null
-        return JavaModule.Explicit(moduleInfo, listOf(JavaModule.Root(moduleRoot, isBinary = true)), file)
+        return JavaModule.Explicit(moduleInfo,
+                                   if (useLastJdkApi) listOf(JavaModule.Root(moduleRoot, isBinary = true, isBinarySignature = useSig))
+                                   //TODO: Don't clear how distinguish roots from different modules
+                                   // so roots would be duplicated, how it's OK?
+                                   else if (useSig) listFoldersForRelease(releaseFlagValue).map { JavaModule.Root(it, isBinary = true, isBinarySignature = true) }
+                                   else ctSymModules[moduleInfo.moduleName]?.map { JavaModule.Root(it, isBinary = true, isBinarySignature = true) }
+                                       ?: return null /*not module in old jdk*/,
+                                   file)
+
     }
 
     private fun codeFor(release: Int): String = if (release < 10) release.toString() else ('A' + (release - 10)).toString()
@@ -83,9 +106,8 @@ class CliJavaModuleFinder(
 
     fun listFoldersForRelease(release: Int): List<VirtualFile> {
         if (!hasCtSymFile()) return emptyList()
-        val findFileByPath = listFoldersInCtSym() ?: return emptyList()
-        val isJDK12OrLater = compilationJdkVersion >= 12
-        return findFileByPath.children.filter { matchesRelease(it.name, release) }.flatMap {
+        val root = ctSymRootFolder() ?: return emptyList()
+        return root.children.filter { matchesRelease(it.name, release) }.flatMap {
             if (isJDK12OrLater)
                 it.children.toList()
             else {
@@ -94,6 +116,30 @@ class CliJavaModuleFinder(
         }
     }
 
-    private fun listFoldersInCtSym() = VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.JAR_PROTOCOL)
+    private fun collectModuleRoots(release: Int): Map<String, List<VirtualFile>> {
+        if (!hasCtSymFile()) return emptyMap()
+        val result = mutableMapOf<String, MutableList<VirtualFile>>()
+        val root = ctSymRootFolder() ?: return emptyMap()
+
+        if (isJDK12OrLater) {
+            root.children.filter { matchesRelease(it.name, release) }.forEach { virtualFile ->
+                virtualFile.children.toList().forEach {
+                    val modulePaths = result.getOrPut(it.name) { arrayListOf() }
+                    modulePaths.add(it)
+                }
+            }
+        } else {
+            if (releaseFlagValue > 8) {
+                val moduleSigs = root.findChild(codeFor(release) + "-modules")
+                    ?: error("Can't find modules signatures in `ct.sym` file for `-release $release` in ${ctSymFile?.path}")
+                moduleSigs.children.forEach {
+                    result[it.name] = mutableListOf(it)
+                }
+            }
+        }
+        return result
+    }
+
+    private fun ctSymRootFolder() = VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.JAR_PROTOCOL)
         ?.findFileByPath(ctSymFile!!.path + URLUtil.JAR_SEPARATOR)
 }
