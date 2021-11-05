@@ -135,7 +135,7 @@ class IrModuleToJsTransformer(
     ): CompilationOutputs {
 
         val nameGenerator = refInfo.withReferenceTracking(
-            IrNamerImpl(namer, backendContext),
+            IrNamerImpl(namer),
             modules
         )
         val staticContext = JsStaticContext(

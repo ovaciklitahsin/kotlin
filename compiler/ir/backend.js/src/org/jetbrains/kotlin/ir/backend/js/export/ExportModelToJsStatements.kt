@@ -164,10 +164,9 @@ class ExportModelToJsStatements(
         val currentFunctionKotlinName = namer.getNameForMemberFunction(ir.realOverrideTarget)
 
         return jsAssignment(
-            JsNameRef(currentFunctionExportedName, classPrototype),
+            jsElementAccess(currentFunctionExportedName, classPrototype),
             JsNameRef(currentFunctionKotlinName, classPrototype),
         ).makeStmt()
-
     }
 
     private fun ExportedProperty.generatePrototypeAssignmentIn(owner: ExportedClassLike): JsStatement? {

@@ -11,22 +11,13 @@ import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.js.backend.ast.JsName
 
-class IrNamerImpl(
-    private val newNameTables: NameTables,
-    private val context: JsIrBackendContext
-) : IrNamerBase() {
+class IrNamerImpl(private val newNameTables: NameTables) : IrNamerBase() {
     override fun getNameForStaticDeclaration(declaration: IrDeclarationWithName): JsName =
         newNameTables.getNameForStaticDeclaration(declaration).toJsName()
 
     override fun getNameForMemberFunction(function: IrSimpleFunction): JsName {
         require(function.dispatchReceiverParameter != null)
-
-        val name = if (function.hasStableJsName(context)) {
-            function.getJsNameOrKotlinName().asString()
-        } else {
-            jsFunctionSignature(function)
-        }
-
+        val name = jsFunctionSignature(function)
         return name.toJsName()
     }
 
